@@ -4,6 +4,7 @@ import { ComicsModule } from './comics/comics.module';
 import { SitesModule } from './sites/sites.module';
 import { ComicSitesModule } from './comic-sites/comic-sites.module';
 import { ChaptersModule } from './chapters/chapters.module';
+import { ReadingProgressModule } from './reading-progress/reading-progress.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SitesModule,
     ComicSitesModule,
     ChaptersModule,
+    ReadingProgressModule,
   ],
 })
 export class AppModule {}

@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ComicType {
+  MANGA
+  MANHWA
+  MANHUA
+  WEBTOON
+  COMIC
+  OTHER
+}
+
+enum ComicStatus {
+  ONGOING
+  COMPLETED
+  HIATUS
+  CANCELLED
+  UNKNOWN
+}
+
+enum ReadingStatus {
+  READING
+  COMPLETED
+  PAUSED
+  DROPPED
+  PLAN_TO_READ
+}
+
+model Comic {
+  id                String            @id @default(uuid())
+  title             String
+  alternativeTitles String[]          @default([])
+  type              ComicType         @default(MANGA)
+  status            ComicStatus       @default(UNKNOWN)
+  coverUrl          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  sites             ComicSite[]
+  readingProgress   ReadingProgress?
+
+  @@index([title])
+}
+
+model Site {
+  id          String      @id @default(uuid())
+  name        String
+  baseUrl     String
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  comics      ComicSite[]
+
+  @@unique([name])
+}
+
+model ComicSite {
+  id            String      @id @default(uuid())
+  comicId       String
+  siteId        String
+  url           String
+  isAvailable   Boolean     @default(true)
+  lastCheckedAt DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  comic         Comic       @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  site          Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  chapters      Chapter[]
+
+  @@unique([comicId, siteId])
+  @@index([siteId])
+}
+
+model Chapter {
+  id           String     @id @default(uuid())
+  comicSiteId  String
+  number       Decimal    @db.Decimal(10, 3)
+  title        String?
+  url          String
+  publishedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  comicSite    ComicSite  @relation(fields: [comicSiteId], references: [id], onDelete: Cascade)
+
+  @@unique([comicSiteId, number])
+  @@index([comicSiteId, publishedAt])
+}
+
+model ReadingProgress {
+  id                String        @id @default(uuid())
+  comicId           String        @unique
+  currentChapterId  String?
+  status            ReadingStatus @default(PLAN_TO_READ)
+  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime      @default(now())
+
+  comic             Comic         @relation(fields: [comicId], references: [id], onDelete: Cascade)
+}

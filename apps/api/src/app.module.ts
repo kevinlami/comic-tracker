@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ComicsModule } from './comics/comics.module';
 import { SitesModule } from './sites/sites.module';
 import { ComicSitesModule } from './comic-sites/comic-sites.module';
+import { ChaptersModule } from './chapters/chapters.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ComicsModule,
     SitesModule,
     ComicSitesModule,
+    ChaptersModule,
   ],
 })
 export class AppModule {}

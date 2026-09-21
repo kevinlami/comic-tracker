@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ComicsService } from './comics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ComicType, ComicStatus } from '../generated/enums';
@@ -10,6 +10,8 @@ describe('ComicsService', () => {
     comic: {
       create: jest.Mock;
       findMany: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -18,6 +20,8 @@ describe('ComicsService', () => {
       comic: {
         create: jest.fn(),
         findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -255,6 +259,287 @@ describe('ComicsService', () => {
       const result = await service.findAll();
 
       expect(result).toEqual(comics);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a comic when found', async () => {
+      const comic = {
+        id: 'uuid-1',
+        title: 'One Piece',
+        alternativeTitles: [],
+        type: ComicType.MANGA,
+        status: ComicStatus.ONGOING,
+        coverUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.comic.findUnique.mockResolvedValue(comic);
+
+      const result = await service.findOne('uuid-1');
+
+      expect(prisma.comic.findUnique).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+      });
+      expect(result).toEqual(comic);
+    });
+
+    it('should throw NotFoundException when comic is not found', async () => {
+      prisma.comic.findUnique.mockResolvedValue(null);
+
+      try {
+        await service.findOne('nonexistent-id');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+      }
+      expect(prisma.comic.findUnique).toHaveBeenCalledWith({
+        where: { id: 'nonexistent-id' },
+      });
+    });
+  });
+
+  describe('update', () => {
+    const existingComic = {
+      id: 'uuid-1',
+      title: 'One Piece',
+      alternativeTitles: ['ワンピース'],
+      type: ComicType.MANGA,
+      status: ComicStatus.ONGOING,
+      coverUrl: 'https://example.com/cover.jpg',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prisma.comic.findUnique.mockResolvedValue(existingComic);
+    });
+
+    it('should update only title', async () => {
+      const updated = { ...existingComic, title: 'New Title' };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', { title: 'New Title' });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { title: 'New Title' },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update only status', async () => {
+      const updated = { ...existingComic, status: ComicStatus.COMPLETED };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        status: ComicStatus.COMPLETED,
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { status: ComicStatus.COMPLETED },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update only type', async () => {
+      const updated = { ...existingComic, type: ComicType.MANHWA };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        type: ComicType.MANHWA,
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { type: ComicType.MANHWA },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update only alternativeTitles', async () => {
+      const updated = {
+        ...existingComic,
+        alternativeTitles: ['Alt 1', 'Alt 2'],
+      };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        alternativeTitles: ['Alt 1', 'Alt 2'],
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { alternativeTitles: ['Alt 1', 'Alt 2'] },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update coverUrl', async () => {
+      const updated = {
+        ...existingComic,
+        coverUrl: 'https://example.com/new-cover.jpg',
+      };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        coverUrl: 'https://example.com/new-cover.jpg',
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { coverUrl: 'https://example.com/new-cover.jpg' },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update coverUrl to null', async () => {
+      const updated = { ...existingComic, coverUrl: null };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', { coverUrl: null });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { coverUrl: null },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should update multiple fields at once', async () => {
+      const updated = {
+        ...existingComic,
+        title: 'New Title',
+        status: ComicStatus.COMPLETED,
+        coverUrl: null,
+      };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        title: 'New Title',
+        status: ComicStatus.COMPLETED,
+        coverUrl: null,
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: {
+          title: 'New Title',
+          status: ComicStatus.COMPLETED,
+          coverUrl: null,
+        },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should not send omitted fields to prisma update', async () => {
+      prisma.comic.update.mockResolvedValue(existingComic);
+
+      await service.update('uuid-1', { title: 'New Title' });
+
+      const callData = prisma.comic.update.mock.calls[0][0].data;
+      expect(Object.keys(callData)).toEqual(['title']);
+    });
+
+    it('should throw NotFoundException for nonexistent id', async () => {
+      prisma.comic.findUnique.mockResolvedValue(null);
+
+      try {
+        await service.update('nonexistent', { title: 'Test' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+      }
+    });
+
+    it('should throw BadRequestException when title is empty', async () => {
+      try {
+        await service.update('uuid-1', { title: '' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when title is only whitespace', async () => {
+      try {
+        await service.update('uuid-1', { title: '   ' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when alternativeTitles is not an array', async () => {
+      try {
+        await service.update('uuid-1', {
+          alternativeTitles: 'not-an-array' as unknown as string[],
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException for invalid type', async () => {
+      try {
+        await service.update('uuid-1', {
+          type: 'INVALID' as ComicType,
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException for invalid status', async () => {
+      try {
+        await service.update('uuid-1', {
+          status: 'INVALID' as ComicStatus,
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when coverUrl is not a string or null', async () => {
+      try {
+        await service.update('uuid-1', {
+          coverUrl: 123 as unknown as string,
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should trim title when updating', async () => {
+      prisma.comic.update.mockResolvedValue(existingComic);
+
+      await service.update('uuid-1', { title: '  Trimmed  ' });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { title: 'Trimmed' },
+      });
+    });
+
+    it('should accept empty alternativeTitles array', async () => {
+      const updated = { ...existingComic, alternativeTitles: [] };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', {
+        alternativeTitles: [],
+      });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { alternativeTitles: [] },
+      });
+      expect(result).toEqual(updated);
     });
   });
 });

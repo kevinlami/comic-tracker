@@ -8,12 +8,16 @@ describe('ComicsController', () => {
   let service: {
     create: jest.Mock;
     findAll: jest.Mock;
+    findOne: jest.Mock;
+    update: jest.Mock;
   };
 
   beforeEach(async () => {
     service = {
       create: jest.fn(),
       findAll: jest.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -95,6 +99,73 @@ describe('ComicsController', () => {
       const result = await controller.findAll();
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a comic when found', async () => {
+      const comic = {
+        id: 'uuid-1',
+        title: 'One Piece',
+        alternativeTitles: [],
+        type: 'MANGA',
+        status: 'ONGOING',
+        coverUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      service.findOne.mockResolvedValue(comic);
+
+      const result = await controller.findOne('uuid-1');
+
+      expect(service.findOne).toHaveBeenCalledWith('uuid-1');
+      expect(result).toEqual(comic);
+    });
+
+    it('should propagate NotFoundException from service', async () => {
+      service.findOne.mockRejectedValue(new Error('Not found'));
+
+      await expect(controller.findOne('nonexistent')).rejects.toThrow('Not found');
+    });
+  });
+
+  describe('update', () => {
+    it('should update a comic and return it', async () => {
+      const dto = { title: 'New Title' };
+      const updated = {
+        id: 'uuid-1',
+        title: 'New Title',
+        alternativeTitles: [],
+        type: 'MANGA',
+        status: 'ONGOING',
+        coverUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      service.update.mockResolvedValue(updated);
+
+      const result = await controller.update('uuid-1', dto);
+
+      expect(service.update).toHaveBeenCalledWith('uuid-1', dto);
+      expect(result).toEqual(updated);
+    });
+
+    it('should propagate NotFoundException from service', async () => {
+      service.update.mockRejectedValue(new Error('Not found'));
+
+      await expect(
+        controller.update('nonexistent', { title: 'Test' }),
+      ).rejects.toThrow('Not found');
+    });
+
+    it('should propagate BadRequestException from service', async () => {
+      service.update.mockRejectedValue(new Error('Bad request'));
+
+      await expect(
+        controller.update('uuid-1', { title: '' }),
+      ).rejects.toThrow('Bad request');
     });
   });
 });

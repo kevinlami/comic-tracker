@@ -7,8 +7,7 @@
     "dev": "concurrently \"pnpm db:up\" \"pnpm dev:api\" \"pnpm dev:web\"",
     "dev:api": "pnpm --filter api start:dev",
     "dev:web": "pnpm --filter web exec next dev --port 3001",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
+    "db:up": "powershell -NoProfile -Command \"if ((Get-Service postgresql-x64-18).Status -ne 'Running') { Start-Service postgresql-x64-18 }\"",
     "db:generate": "pnpm --filter api exec prisma generate",
     "db:migrate": "pnpm --filter api exec prisma migrate dev",
     "postinstall": "pnpm db:generate"

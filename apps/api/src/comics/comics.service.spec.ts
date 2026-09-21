@@ -12,6 +12,7 @@ describe('ComicsService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      delete: jest.Mock;
     };
   };
 
@@ -22,6 +23,7 @@ describe('ComicsService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
     };
 
@@ -540,6 +542,72 @@ describe('ComicsService', () => {
         data: { alternativeTitles: [] },
       });
       expect(result).toEqual(updated);
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete an existing comic', async () => {
+      prisma.comic.delete.mockResolvedValue(undefined);
+
+      await service.remove('uuid-1');
+
+      expect(prisma.comic.delete).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+      });
+    });
+
+    it('should throw NotFoundException when comic does not exist', async () => {
+      const prismaError = Object.assign(new Error('Record to delete does not exist'), {
+        code: 'P2025',
+        clientVersion: '7.0.0',
+      });
+      prisma.comic.delete.mockRejectedValue(prismaError);
+
+      try {
+        await service.remove('nonexistent-id');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+      }
+
+      expect(prisma.comic.delete).toHaveBeenCalledWith({
+        where: { id: 'nonexistent-id' },
+      });
+    });
+
+    it('should not call delete when id is nonexistent (NotFoundException thrown by delete mock)', async () => {
+      const prismaError = Object.assign(new Error('Record to delete does not exist'), {
+        code: 'P2025',
+        clientVersion: '7.0.0',
+      });
+      prisma.comic.delete.mockRejectedValue(prismaError);
+
+      try {
+        await service.remove('nonexistent-id');
+      } catch {
+        // expected
+      }
+
+      expect(prisma.comic.delete).toHaveBeenCalledTimes(1);
+      expect(prisma.comic.delete).toHaveBeenCalledWith({
+        where: { id: 'nonexistent-id' },
+      });
+    });
+
+    it('should rethrow non-P2025 errors from Prisma', async () => {
+      const dbError = Object.assign(new Error('Connection refused'), {
+        code: 'P1001',
+        clientVersion: '7.0.0',
+      });
+      prisma.comic.delete.mockRejectedValue(dbError);
+
+      try {
+        await service.remove('uuid-1');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('Connection refused');
+      }
     });
   });
 });

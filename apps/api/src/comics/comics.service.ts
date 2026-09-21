@@ -137,4 +137,19 @@ export class ComicsService {
       data,
     });
   }
+
+  async remove(id: string) {
+    try {
+      await this.prisma.comic.delete({ where: { id } });
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2025'
+      ) {
+        throw new NotFoundException(`Comic with id "${id}" not found`);
+      }
+      throw error;
+    }
+  }
 }

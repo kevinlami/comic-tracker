@@ -10,6 +10,7 @@ describe('ComicsController', () => {
     findAll: jest.Mock;
     findOne: jest.Mock;
     update: jest.Mock;
+    remove: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -18,6 +19,7 @@ describe('ComicsController', () => {
       findAll: jest.fn(),
       findOne: jest.fn(),
       update: jest.fn(),
+      remove: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -166,6 +168,31 @@ describe('ComicsController', () => {
       await expect(
         controller.update('uuid-1', { title: '' }),
       ).rejects.toThrow('Bad request');
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete a comic and return void', async () => {
+      service.remove.mockResolvedValue(undefined);
+
+      const result = await controller.remove('uuid-1');
+
+      expect(service.remove).toHaveBeenCalledWith('uuid-1');
+      expect(result).toBeUndefined();
+    });
+
+    it('should call service with correct id', async () => {
+      service.remove.mockResolvedValue(undefined);
+
+      await controller.remove('my-comic-id');
+
+      expect(service.remove).toHaveBeenCalledWith('my-comic-id');
+    });
+
+    it('should propagate NotFoundException from service', async () => {
+      service.remove.mockRejectedValue(new Error('Not found'));
+
+      await expect(controller.remove('nonexistent')).rejects.toThrow('Not found');
     });
   });
 });

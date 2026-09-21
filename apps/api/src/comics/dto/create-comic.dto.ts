@@ -1,7 +1,9 @@
+import { ComicType, ComicStatus } from '../../generated/enums';
+
 export class CreateComicDto {
   title: string;
   alternativeTitles?: string[];
-  type?: string;
-  status?: string;
+  type?: ComicType;
+  status?: ComicStatus;
   coverUrl?: string | null;
 }

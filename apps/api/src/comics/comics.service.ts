@@ -11,28 +11,46 @@ export class ComicsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateComicDto) {
-    if (!dto.title || dto.title.trim().length === 0) {
+    if (!dto || typeof dto.title !== 'string' || dto.title.trim().length === 0) {
       throw new BadRequestException('title is required and must not be empty');
     }
 
-    if (dto.type && !VALID_COMIC_TYPES.has(dto.type as ComicType)) {
+    if (dto.type && !VALID_COMIC_TYPES.has(dto.type)) {
       throw new BadRequestException(
         `Invalid type. Allowed values: ${Object.values(ComicType).join(', ')}`,
       );
     }
 
-    if (dto.status && !VALID_COMIC_STATUSES.has(dto.status as ComicStatus)) {
+    if (dto.status && !VALID_COMIC_STATUSES.has(dto.status)) {
       throw new BadRequestException(
         `Invalid status. Allowed values: ${Object.values(ComicStatus).join(', ')}`,
       );
+    }
+
+    if (
+      dto.alternativeTitles !== undefined &&
+      (!Array.isArray(dto.alternativeTitles) ||
+        dto.alternativeTitles.some((t) => typeof t !== 'string'))
+    ) {
+      throw new BadRequestException(
+        'alternativeTitles must be an array of strings',
+      );
+    }
+
+    if (
+      dto.coverUrl !== undefined &&
+      dto.coverUrl !== null &&
+      typeof dto.coverUrl !== 'string'
+    ) {
+      throw new BadRequestException('coverUrl must be a string or null');
     }
 
     return this.prisma.comic.create({
       data: {
         title: dto.title.trim(),
         alternativeTitles: dto.alternativeTitles ?? [],
-        type: dto.type as ComicType | undefined,
-        status: dto.status as ComicStatus | undefined,
+        type: dto.type,
+        status: dto.status,
         coverUrl: dto.coverUrl,
       },
     });

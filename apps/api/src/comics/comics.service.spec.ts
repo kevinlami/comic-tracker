@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { ComicsService } from './comics.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ComicType, ComicStatus } from '../generated/enums';
 
 describe('ComicsService', () => {
   let service: ComicsService;
@@ -41,8 +42,8 @@ describe('ComicsService', () => {
         id: 'uuid-1',
         title: 'One Piece',
         alternativeTitles: [],
-        type: 'MANGA',
-        status: 'UNKNOWN',
+        type: ComicType.MANGA,
+        status: ComicStatus.UNKNOWN,
         coverUrl: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -68,8 +69,8 @@ describe('ComicsService', () => {
       const dto = {
         title: 'Solo Leveling',
         alternativeTitles: ['나 혼자만 레벨업'],
-        type: 'MANHWA',
-        status: 'COMPLETED',
+        type: ComicType.MANHWA,
+        status: ComicStatus.COMPLETED,
         coverUrl: 'https://example.com/cover.jpg',
       };
       const expected = {
@@ -91,8 +92,8 @@ describe('ComicsService', () => {
         data: {
           title: 'Solo Leveling',
           alternativeTitles: ['나 혼자만 레벨업'],
-          type: 'MANHWA',
-          status: 'COMPLETED',
+          type: ComicType.MANHWA,
+          status: ComicStatus.COMPLETED,
           coverUrl: 'https://example.com/cover.jpg',
         },
       });
@@ -112,13 +113,22 @@ describe('ComicsService', () => {
       );
     });
 
-    it('should throw BadRequestException when title is missing', async () => {
+    it('should throw BadRequestException when dto is undefined', async () => {
+      await expect(
+        service.create(undefined as unknown as { title: string }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when dto is empty', async () => {
+      await expect(service.create({} as { title: string })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when title is empty', async () => {
       await expect(service.create({ title: '' })).rejects.toThrow(
         BadRequestException,
       );
-      await expect(
-        service.create({ title: undefined as unknown as string }),
-      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when title is only whitespace', async () => {
@@ -129,27 +139,18 @@ describe('ComicsService', () => {
 
     it('should throw BadRequestException for invalid type', async () => {
       await expect(
-        service.create({ title: 'Test', type: 'INVALID' }),
+        service.create({ title: 'Test', type: 'INVALID' as ComicType }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException for invalid status', async () => {
       await expect(
-        service.create({ title: 'Test', status: 'INVALID' }),
+        service.create({ title: 'Test', status: 'INVALID' as ComicStatus }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should accept all valid comic types', async () => {
-      const validTypes = [
-        'MANGA',
-        'MANHWA',
-        'MANHUA',
-        'WEBTOON',
-        'COMIC',
-        'OTHER',
-      ];
-
-      for (const type of validTypes) {
+      for (const type of Object.values(ComicType)) {
         prisma.comic.create.mockResolvedValue({ id: '1', type });
         const result = await service.create({ title: 'Test', type });
         expect(result.type).toBe(type);
@@ -157,19 +158,78 @@ describe('ComicsService', () => {
     });
 
     it('should accept all valid comic statuses', async () => {
-      const validStatuses = [
-        'ONGOING',
-        'COMPLETED',
-        'HIATUS',
-        'CANCELLED',
-        'UNKNOWN',
-      ];
-
-      for (const status of validStatuses) {
+      for (const status of Object.values(ComicStatus)) {
         prisma.comic.create.mockResolvedValue({ id: '1', status });
         const result = await service.create({ title: 'Test', status });
         expect(result.status).toBe(status);
       }
+    });
+
+    it('should throw BadRequestException when alternativeTitles is not an array', async () => {
+      await expect(
+        service.create({
+          title: 'Test',
+          alternativeTitles: 'not-an-array' as unknown as string[],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when alternativeTitles contains non-strings', async () => {
+      await expect(
+        service.create({
+          title: 'Test',
+          alternativeTitles: [123, true] as unknown as string[],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept valid alternativeTitles array', async () => {
+      prisma.comic.create.mockResolvedValue({ id: '1' });
+      await service.create({
+        title: 'Test',
+        alternativeTitles: ['Alt 1', 'Alt 2'],
+      });
+      expect(prisma.comic.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            alternativeTitles: ['Alt 1', 'Alt 2'],
+          }),
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when coverUrl is not a string or null', async () => {
+      await expect(
+        service.create({
+          title: 'Test',
+          coverUrl: 123 as unknown as string,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept coverUrl as null', async () => {
+      prisma.comic.create.mockResolvedValue({ id: '1' });
+      await service.create({ title: 'Test', coverUrl: null });
+      expect(prisma.comic.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ coverUrl: null }),
+        }),
+      );
+    });
+
+    it('should accept coverUrl as valid string', async () => {
+      prisma.comic.create.mockResolvedValue({ id: '1' });
+      await service.create({
+        title: 'Test',
+        coverUrl: 'https://example.com/cover.jpg',
+      });
+      expect(prisma.comic.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            coverUrl: 'https://example.com/cover.jpg',
+          }),
+        }),
+      );
     });
   });
 

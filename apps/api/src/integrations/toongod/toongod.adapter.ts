@@ -6,16 +6,20 @@
  * Os métodos getComicInfo() e getChapters() são stubs que lançam erro
  * indicando que não foram implementados ainda.
  * 
- * O site Toongod tem o seguinte comportamento:
- * - https://toongod.org: retorna 403 (Cloudflare/WAF)
- * - https://toongod.net: retorna 302 redirect para http://ww17.toongod.net/
- * - http://ww17.toongod.net: retorna 200 (página de ConsentManager GDPR)
+ * DESCRIÇÃO DA DESCOBERTA DO SITE:
+ * - https://www.toongod.org: RETORNA 403 (Cloudflare/WAF ativo - bloqueia requisições automatizadas)
+ * - https://toongod.net: RETORNA 302 redirect para http://ww17.toongod.net/ (domain principal)
+ * - http://ww17.toongod.net: RETORNA 200 (página de ConsentManager GDPR - exige aceitação de cookies)
+ * 
+ * O adapter foi desenvolvido baseando-se nos domínios que respondem (toongod.net e ww17.toongod.net),
+ * pois o .org está protegido por WAF e não pode ser verificado por requisições HTTP simples.
  * 
  * O checkAvailability() segue as regras:
  * - Não considera HTTP 4xx/5xx como disponibilidade normal
  * - Trata erros de rede, timeout e redirects de forma controlada
  * - Retorna o tipo SiteAvailability já definido no projeto
  * - Usa módulos nativos Node (http/https) - sem novas dependências
+ * - Domínio configurável via options.baseUrl, com fallback para toongod.net
  */
 
 import { SiteAdapter } from '../site-adapter.interface';
@@ -50,12 +54,21 @@ export type HttpClient = {
  * - Página de ConsentManager no domínio ww17
  * 
  * @param httpClient Cliente HTTP injetável para testes (usa nativo se não fornecido)
+ * @param options Opções de configuração. Opcional: baseUrl para sobrescrever o domínio padrão.
+ *               Padrão: https://toongod.net
  */
 export class ToongodAdapter implements SiteAdapter {
   /** Timeout em milissegundos para requisições HTTP */
   private readonly timeoutMs: number;
   /** Cliente HTTP para realizar as requisições */
   private readonly httpClient: HttpClient;
+
+  /**
+   * Domínio base do site Toongod.
+   * Pode ser sobrescrito via options.baseUrl no construtor.
+   * Se não fornecido, usa o padrão https://toongod.net.
+   */
+  private readonly baseUrl: string;
 
   /**
    * Cria uma nova instância do ToongodAdapter.
@@ -67,6 +80,8 @@ export class ToongodAdapter implements SiteAdapter {
     httpClient?: HttpClient,
   ) {
     this.timeoutMs = options?.timeoutMs || 10000;
+    // Usa o baseUrl fornecido ou o domínio padrão
+    this.baseUrl = options?.baseUrl || 'https://toongod.net';
     // Usa o cliente injetado ou o padrão do Node.js
     this.httpClient = httpClient || this.defaultHttpClient;
   }
@@ -120,18 +135,20 @@ export class ToongodAdapter implements SiteAdapter {
    * Verifica se o site Toongod está acessível.
    * 
    * Comportamento:
-   * 1. Faz requisição para https://toongod.net
+   * 1. Faz requisição para o domínio configurado (padrão: https://toongod.net)
    * 2. O site retorna 302 redirect para http://ww17.toongod.net
    * 3. Segue o redirect e verifica se a resposta final é 200
    * 4. Retorna { available: true } se status for 200
    * 5. Retorna { available: false } para status 4xx/5xx ou erros
    * 
    * @returns Promise com { available: boolean }
+   * 
+   * @throws {Error} Se o domínio configurado não for acessível
    */
   async checkAvailability(): Promise<SiteAvailability> {
     try {
-      // Tenta o domínio principal - este faz redirect
-      const result = await this.makeRequest('https://toongod.net');
+      // Tenta o domínio configurado - este faz redirect
+      const result = await this.makeRequest(this.baseUrl);
 
       if (result.finalStatus === 200) {
         return { available: true };
@@ -173,7 +190,7 @@ export class ToongodAdapter implements SiteAdapter {
   /**
    * Faz uma requisição HTTP com tratamento de redirect e timeout.
    * 
-   * @param url URL para acessar
+   * @param url URL para acessar (usa o baseUrl se não especificado)
    * @returns Resultado com status codes e informações do redirect
    */
   private async makeRequest(url: string): Promise<{

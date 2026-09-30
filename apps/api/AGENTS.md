@@ -343,10 +343,13 @@ o frontend controlar a paginação.
 
 ## 17. Integrações externas
 
-Integrações com sites de leitura devem ser tratadas como fontes
-externas não confiáveis.
+O projeto não realiza integrações automatizadas com os sites de
+leitura: não há scraping nem requisições do backend a esses sites.
 
-Um site pode:
+Caso existam integrações externas no futuro, elas devem ser tratadas
+como fontes externas não confiáveis.
+
+Uma fonte externa pode:
 
 - ficar indisponível;
 - alterar sua estrutura;
@@ -362,25 +365,21 @@ Não assumir que uma integração externa sempre estará disponível.
 
 ---
 
-## 18. Integrações com sites
+## 18. Integração com sites de leitura
 
-Quando a complexidade justificar, manter a lógica específica de
-cada site isolada.
+O projeto **não** realiza scraping nem acesso automatizado aos sites
+de leitura.
 
-Evitar espalhar verificações específicas de um site por vários
-módulos da aplicação.
+Os sites são cadastrados manualmente pelo usuário, junto com os links
+de leitura. A API deve tratar esses cadastros apenas como dados, sem
+consultar as URLs para extrair informações.
 
-Exemplo conceitual:
+Não criar:
 
-Site A
-
-↓
-
-parser específico
-
-↓
-
-dados normalizados
+- parsers de páginas;
+- adapters ou registry/factory de adapters;
+- automação de navegador (Playwright, Puppeteer ou similar);
+- qualquer mecanismo de extração automática de dados dos sites.
 
 A aplicação deve trabalhar preferencialmente com um formato interno
 consistente.
@@ -430,11 +429,9 @@ quando puderem ser executadas em background.
 
 Possíveis tarefas:
 
-- verificar novos capítulos;
-- verificar disponibilidade de sites;
 - atualizar informações;
-- sincronizar fontes;
-- processar grandes volumes de dados.
+- processar grandes volumes de dados;
+- executar jobs do domínio quando existirem.
 
 Redis e BullMQ podem ser utilizados quando existir necessidade real.
 
@@ -602,7 +599,6 @@ Priorizar testes para:
 - validações;
 - integrações críticas;
 - tratamento de erros;
-- parsers;
 - processamento de capítulos;
 - jobs.
 

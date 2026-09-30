@@ -9,12 +9,22 @@ O sistema tem como objetivo permitir que o usuário:
 
 - cadastre e acompanhe obras que está lendo;
 - registre o capítulo atual;
-- mantenha links para diferentes sites de leitura;
-- identifique quando um site de leitura está indisponível;
-- detecte novos capítulos;
+- cadastre os sites onde lê e mantenha os links de leitura;
 - acompanhe o histórico de leitura;
 - centralize informações de diferentes fontes;
-- futuramente automatize verificações periódicas de disponibilidade e novos capítulos.
+- visualize o dashboard organizando seus quadrinhos e o progresso de leitura.
+
+O cadastro de quadrinhos e de sites é feito **manualmente** pelo usuário.
+
+O projeto **não** realiza scraping nem acesso automatizado aos sites de
+leitura. Não usar Playwright, Puppeteer, Cheerio, requisições automatizadas,
+bypass de Cloudflare ou qualquer mecanismo para acessar e extrair dados dos
+sites. Os dados de quadrinhos, capítulos e progresso vêm do cadastro do
+usuário.
+
+Futuramente, uma extensão Firefox identificará a URL da página atualmente
+aberta e permitirá atualizar o progresso de leitura. A identificação de
+quadrinho/capítulo pela URL será implementada em uma etapa posterior.
 
 O projeto é um monorepo utilizando PNPM Workspaces.
 
@@ -176,8 +186,8 @@ Antes de adicionar qualquer biblioteca externa:
 
 ## 13. Backend, Integrações Externas e Assincronismo
 
-* **Integrações Externas:** Isolar integrações com sites externos. Fontes externas podem alterar URLs, alterar APIs, bloquear requisições ou ficar indisponíveis. O sistema deve tratar essas falhas de forma controlada.
-* **Processamento Assíncrono:** Não execute tarefas pesadas (ex: verificar novos capítulos, sincronizar fontes) durante uma requisição HTTP.
+* **Integrações Externas:** O projeto não realiza scraping nem acesso automatizado aos sites de leitura. Caso existam integrações externas no futuro, isole-as: fontes externas podem alterar URLs, alterar APIs, bloquear requisições ou ficar indisponíveis, e o sistema deve tratar essas falhas de forma controlada.
+* **Processamento Assíncrono:** Não execute tarefas pesadas (ex: processamento de grandes volumes de dados) durante uma requisição HTTP.
 * Introduzir tecnologias como Redis e BullMQ apenas quando houver necessidade real (não adicionar antecipadamente).
 
 ---
@@ -194,7 +204,7 @@ Antes de adicionar qualquer biblioteca externa:
 Utilize nomes claros e expressivos que reflitam o domínio da aplicação.
 
 * **EVITE nomes genéricos ou ambíguos:** `data`, `helper`, `manager`, `temp`, `utils2`, `test2`.
-* **PREFIRA nomes declarativos:** `chapter-parser`, `site-availability.service`, `comic-search.service`, `reading-progress`.
+* **PREFIRA nomes declarativos:** `chapter-numbering`, `site-url`, `comic-search.service`, `reading-progress`.
 
 ---
 

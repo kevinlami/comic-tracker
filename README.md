@@ -1,6 +1,6 @@
 # Comic Tracker
 
-Aplicação web para acompanhamento de mangás, manhwas, manhuas, webtoons e quadrinhos, permitindo centralizar links de diferentes sites, acompanhar o progresso de leitura e identificar novos capítulos e disponibilidade dos sites.
+Aplicação web para acompanhamento de mangás, manhwas, manhuas, webtoons e quadrinhos, permitindo cadastrar manualmente os quadrinhos e os sites de leitura, centralizar links e acompanhar o progresso e o histórico de leitura.
 
 ## Quick Start
 

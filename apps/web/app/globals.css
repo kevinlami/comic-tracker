@@ -25,6 +25,7 @@
 
   /* Acentos */
   --color-primary: #93ccff;
+  --color-primary-fixed: #cce5ff;
   --color-on-primary: #003351;
   --color-primary-container: #3198dc;
   --color-on-primary-container: #002c47;
@@ -32,6 +33,7 @@
   --color-tertiary: #ffb95f;
   --color-error: #ffb4ab;
   --color-error-container: #93000a;
+  --color-surface-bright: #39393c;
 
   /* Linhas */
   --color-outline: #89929b;
@@ -72,6 +74,11 @@
   --text-headline-lg--line-height: 2.5rem;
   --text-headline-lg--letter-spacing: -0.025em;
   --text-headline-lg--font-weight: 700;
+
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 3.5rem;
+  --text-display-lg--letter-spacing: -0.03em;
+  --text-display-lg--font-weight: 700;
 
   --text-title-md: 1.125rem;
   --text-title-md--line-height: 1.5rem;

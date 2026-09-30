@@ -1,4 +1,6 @@
-import { ApiError, fetchComics } from "@/services/comics.service";
+import { Suspense } from "react";
+import { fetchComics } from "@/services/comics.service";
+import { ApiError } from "@/services/api-client";
 import type { Comic } from "@/types/comic";
 import { MetricsSummary } from "@/components/dashboard/metrics-summary";
 import { SearchBar } from "@/components/dashboard/search-bar";
@@ -8,6 +10,7 @@ import { RecentReadings } from "@/components/dashboard/recent-readings";
 import { ComicsGrid } from "@/components/dashboard/comics-grid";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorState } from "@/components/dashboard/error-state";
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 
 interface DashboardSearchParams {
   search?: string;
@@ -20,8 +23,24 @@ interface DashboardSearchParams {
  *
  * Filtros, busca e ordenação vivem na URL (`?search=`, `?status=`,
  * `?order=`), então o estado é compartilhável e sobrevive ao reload.
+ *
+ * O skeleton fica num `Suspense` interno (e não num `loading.tsx` raiz)
+ * porque qualquer `loading.tsx` na árvore impede o Next de fixar o status
+ * 404 de `notFound()` nas demais rotas (vercel/next.js#97514, #99318).
  */
-export default async function DashboardPage({
+export default function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function DashboardContent({
   searchParams,
 }: {
   searchParams: Promise<DashboardSearchParams>;

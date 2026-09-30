@@ -16,6 +16,15 @@ describe('ComicsService', () => {
     };
   };
 
+  const EXPECTED_INCLUDE = {
+    readingProgress: {
+      include: { comicSite: { include: { site: true } } },
+    },
+    sites: {
+      include: { site: true },
+    },
+  };
+
   beforeEach(async () => {
     prisma = {
       comic: {
@@ -240,15 +249,6 @@ describe('ComicsService', () => {
   });
 
   describe('findAll', () => {
-    const EXPECTED_INCLUDE = {
-      readingProgress: {
-        include: { comicSite: { include: { site: true } } },
-      },
-      sites: {
-        include: { site: true },
-      },
-    };
-
     it('should return an empty array when no comics exist', async () => {
       prisma.comic.findMany.mockResolvedValue([]);
 
@@ -356,6 +356,7 @@ describe('ComicsService', () => {
 
       expect(prisma.comic.findUnique).toHaveBeenCalledWith({
         where: { id: 'uuid-1' },
+        include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(comic);
     });
@@ -371,6 +372,7 @@ describe('ComicsService', () => {
       }
       expect(prisma.comic.findUnique).toHaveBeenCalledWith({
         where: { id: 'nonexistent-id' },
+        include: EXPECTED_INCLUDE,
       });
     });
   });

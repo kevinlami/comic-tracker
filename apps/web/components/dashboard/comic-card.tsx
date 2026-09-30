@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
-import type { Comic, ComicStatus, ReadingStatus } from "@/types/comic";
+import Link from "next/link";
+import type { Comic, ReadingStatus } from "@/types/comic";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { ComicCover } from "./comic-cover";
 import {
+  COMIC_STATUS_LABEL,
   READING_STATUS_DOT,
   READING_STATUS_LABEL,
   READING_STATUS_TEXT,
-} from "./reading-status-display";
+} from "./status-display";
 import { AddIcon, PlayIcon, ReplayIcon, RestoreIcon } from "@/components/icons";
 
 const CTA_PRIMARY =
@@ -74,13 +76,8 @@ function statusMeta(status: ReadingStatus | "NONE"): StatusMeta {
   }
 }
 
-const PUBLICATION_BADGE: Record<ComicStatus, string | null> = {
-  ONGOING: "EM PUBLICAÇÃO",
-  COMPLETED: "FINALIZADO",
-  HIATUS: "HIATO",
-  CANCELLED: "CANCELADO",
-  UNKNOWN: null,
-};
+const PUBLICATION_BADGE_CLASS =
+  "text-caption px-2 py-0.5 rounded font-medium";
 
 export function ComicCard({ comic }: { comic: Comic }) {
   const progress = comic.readingProgress;
@@ -94,7 +91,7 @@ export function ComicCard({ comic }: { comic: Comic }) {
   const chapter = progress?.currentChapterNumber ?? null;
   const lastReadRelative = formatRelativeTime(progress?.lastReadAt ?? null);
 
-  const publicationLabel = PUBLICATION_BADGE[comic.status];
+  const publicationLabel = COMIC_STATUS_LABEL[comic.status];
 
   return (
     <article className="h-full bg-surface-container-low rounded-xl p-3 flex gap-3 items-start shadow-sm hover:bg-surface-container transition-all">
@@ -110,7 +107,7 @@ export function ComicCard({ comic }: { comic: Comic }) {
             </span>
             {publicationLabel ? (
               <span
-                className={`text-caption px-2 py-0.5 rounded font-medium ${
+                className={`${PUBLICATION_BADGE_CLASS} uppercase ${
                   comic.status === "COMPLETED"
                     ? "bg-secondary/15 text-secondary"
                     : "bg-surface-container text-on-surface-variant"
@@ -125,7 +122,12 @@ export function ComicCard({ comic }: { comic: Comic }) {
             className="text-body-lg font-semibold text-on-surface leading-snug line-clamp-2"
             title={comic.title}
           >
-            {comic.title}
+            <Link
+              href={`/comics/${comic.id}`}
+              className="hover:text-primary transition-colors rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+            >
+              {comic.title}
+            </Link>
           </h3>
 
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">

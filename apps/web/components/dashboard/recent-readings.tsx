@@ -5,7 +5,7 @@ import {
   READING_STATUS_DOT,
   READING_STATUS_LABEL,
   READING_STATUS_TEXT,
-} from "./reading-status-display";
+} from "./status-display";
 
 export interface RecentReading {
   comic: Comic;

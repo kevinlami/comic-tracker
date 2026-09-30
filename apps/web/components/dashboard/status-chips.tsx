@@ -4,7 +4,7 @@ import { buildDashboardHref } from "@/lib/dashboard-url";
 import {
   READING_STATUS_DOT,
   READING_STATUS_LABEL,
-} from "./reading-status-display";
+} from "./status-display";
 
 interface StatusChipsProps {
   search: string;

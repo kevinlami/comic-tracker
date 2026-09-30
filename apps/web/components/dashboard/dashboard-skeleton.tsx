@@ -1,8 +1,8 @@
 /**
- * Skeleton exibido enquanto o servidor busca os quadrinhos.
+ * Skeleton do acervo — fallback do `Suspense` da página `/`.
  * Espelha a estrutura real: resumo, busca e grid de cards.
  */
-export default function Loading() {
+export function DashboardSkeleton() {
   return (
     <div className="flex flex-col w-full text-on-surface animate-pulse">
       <section

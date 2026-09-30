@@ -9,6 +9,19 @@ import { validateReadingStatus } from '../common/reading-status';
 const VALID_COMIC_TYPES = new Set(Object.values(ComicType));
 const VALID_COMIC_STATUSES = new Set(Object.values(ComicStatus));
 
+/**
+ * Includes usados na leitura de um quadrinho (lista e detalhe):
+ * progresso com o site usado na leitura e sites vinculados.
+ */
+const COMIC_INCLUDE = {
+  readingProgress: {
+    include: { comicSite: { include: { site: true } } },
+  },
+  sites: {
+    include: { site: true },
+  },
+};
+
 @Injectable()
 export class ComicsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -98,19 +111,15 @@ export class ComicsService {
           : {}),
       },
       orderBy: order === 'recent' ? { createdAt: 'desc' } : { title: 'asc' },
-      include: {
-        readingProgress: {
-          include: { comicSite: { include: { site: true } } },
-        },
-        sites: {
-          include: { site: true },
-        },
-      },
+      include: COMIC_INCLUDE,
     });
   }
 
   async findOne(id: string) {
-    const comic = await this.prisma.comic.findUnique({ where: { id } });
+    const comic = await this.prisma.comic.findUnique({
+      where: { id },
+      include: COMIC_INCLUDE,
+    });
 
     if (!comic) {
       throw new NotFoundException(`Comic with id "${id}" not found`);

@@ -1,4 +1,4 @@
-import type { Comic } from "@/types/comic";
+import type { Comic, ComicStatus, ComicType } from "@/types/comic";
 import { apiFetch } from "./api-client";
 
 export interface ListComicsParams {
@@ -32,5 +32,31 @@ export function fetchComic(id: string): Promise<Comic> {
 export function deleteComic(id: string): Promise<void> {
   return apiFetch<void>(`/comics/${encodeURIComponent(id)}`, {
     method: "DELETE",
+  });
+}
+
+/** Dados de escrita de um quadrinho (criação e edição). */
+export interface ComicWritePayload {
+  title: string;
+  type: ComicType;
+  status: ComicStatus;
+  alternativeTitles: string[];
+  /** `null` limpa a capa; string vazia também vira `null`. */
+  coverUrl: string | null;
+}
+
+/** Cria um quadrinho via `POST /comics`. */
+export function createComic(payload: ComicWritePayload): Promise<Comic> {
+  return apiFetch<Comic>("/comics", { method: "POST", json: payload });
+}
+
+/** Atualiza os dados cadastrais via `PATCH /comics/:id`. */
+export function updateComic(
+  id: string,
+  payload: ComicWritePayload,
+): Promise<Comic> {
+  return apiFetch<Comic>(`/comics/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    json: payload,
   });
 }

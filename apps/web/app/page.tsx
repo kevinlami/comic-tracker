@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { fetchComics } from "@/services/comics.service";
 import { ApiError } from "@/services/api-client";
 import type { Comic } from "@/types/comic";
@@ -11,6 +12,7 @@ import { ComicsGrid } from "@/components/dashboard/comics-grid";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorState } from "@/components/dashboard/error-state";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { AddIcon } from "@/components/icons";
 
 interface DashboardSearchParams {
   search?: string;
@@ -116,7 +118,16 @@ async function DashboardContent({
               {countLabel}
             </span>
           </div>
-          <SortToggle search={search} status={status} order={order} />
+          <div className="flex items-center gap-4">
+            <Link
+              href="/comics/new"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-primary hover:bg-primary-fixed text-on-primary text-label-md font-semibold transition-colors shadow-md focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+            >
+              <AddIcon className="w-4 h-4" />
+              <span>Novo quadrinho</span>
+            </Link>
+            <SortToggle search={search} status={status} order={order} />
+          </div>
         </div>
 
         {comics.length === 0 ? (

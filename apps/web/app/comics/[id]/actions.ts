@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { ApiError } from "@/services/api-client";
 import { deleteComic } from "@/services/comics.service";
 import {
   upsertReadingProgress,
@@ -12,24 +11,13 @@ import {
   createComicSite,
   deleteComicSite,
 } from "@/services/comic-sites.service";
+import {
+  errorMessage,
+  requiredString,
+  type FormActionState,
+} from "@/lib/form-action";
 
-/** Resultado padrão das ações com formulário (`useActionState`). */
-export interface FormActionState {
-  ok: boolean;
-  message: string;
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
-  return "Erro inesperado. Tente novamente.";
-}
-
-function requiredString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
+export type { FormActionState };
 
 /**
  * Registra a última leitura (`PUT` atômico).

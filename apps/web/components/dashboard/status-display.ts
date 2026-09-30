@@ -1,4 +1,4 @@
-import type { ComicStatus, ReadingStatus } from "@/types/comic";
+import type { ComicStatus, ComicType, ReadingStatus } from "@/types/comic";
 
 /** Labels em pt-BR dos status de leitura. */
 export const READING_STATUS_LABEL: Record<ReadingStatus, string> = {
@@ -47,3 +47,32 @@ export const COMIC_STATUS_LABEL: Record<ComicStatus, string | null> = {
   CANCELLED: "Cancelado",
   UNKNOWN: null,
 };
+
+/** Labels em pt-BR do tipo/formato da obra. */
+export const COMIC_TYPE_LABEL: Record<ComicType, string> = {
+  MANGA: "Mangá",
+  MANHWA: "Manhwa",
+  MANHUA: "Manhua",
+  WEBTOON: "Webtoon",
+  COMIC: "Comic",
+  OTHER: "Outro",
+};
+
+/** Ordem de exibição dos tipos nos selects de criação/edição. */
+export const COMIC_TYPE_ORDER: ComicType[] = [
+  "MANGA",
+  "MANHWA",
+  "MANHUA",
+  "WEBTOON",
+  "COMIC",
+  "OTHER",
+];
+
+/** Ordem de exibição do status de publicação nos selects. */
+export const COMIC_STATUS_ORDER: ComicStatus[] = [
+  "ONGOING",
+  "COMPLETED",
+  "HIATUS",
+  "CANCELLED",
+  "UNKNOWN",
+];

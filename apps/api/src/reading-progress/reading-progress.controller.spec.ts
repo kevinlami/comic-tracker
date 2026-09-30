@@ -10,6 +10,7 @@ describe('ReadingProgressController', () => {
     findAll: jest.Mock;
     findOneByComicId: jest.Mock;
     update: jest.Mock;
+    upsert: jest.Mock;
     remove: jest.Mock;
   };
 
@@ -19,6 +20,7 @@ describe('ReadingProgressController', () => {
       findAll: jest.fn(),
       findOneByComicId: jest.fn(),
       update: jest.fn(),
+      upsert: jest.fn(),
       remove: jest.fn(),
     };
 
@@ -40,13 +42,18 @@ describe('ReadingProgressController', () => {
     it('should create a ReadingProgress and return it', async () => {
       const dto: CreateReadingProgressDto = {
         comicId: 'comic-1',
-        currentChapterId: 'ch-1',
+        currentChapterNumber: '1.5',
+        currentChapterUrl: 'https://example.com/solo-leveling/1.5',
+        comicSiteId: 'cs-1',
         status: 'READING',
       };
       const expected = {
         id: 'rp-1',
         comicId: 'comic-1',
-        currentChapterId: 'ch-1',
+        currentChapterNumber: '1.5',
+        currentChapterUrl: 'https://example.com/solo-leveling/1.5',
+        comicSiteId: 'cs-1',
+        lastReadAt: new Date(),
         status: 'READING',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -140,6 +147,38 @@ describe('ReadingProgressController', () => {
       await expect(
         controller.update('comic-1', { status: 'READING' }),
       ).rejects.toThrow('Conflict');
+    });
+  });
+
+  describe('upsert', () => {
+    it('should create or update a ReadingProgress in a single call', async () => {
+      const dto = {
+        currentChapterNumber: '12',
+        currentChapterUrl: 'https://example.com/solo-leveling/12',
+        comicSiteId: 'cs-1',
+      };
+      const expected = {
+        id: 'rp-1',
+        comicId: 'comic-1',
+        currentChapterNumber: '12',
+        lastReadAt: new Date(),
+        status: 'READING',
+      };
+
+      service.upsert.mockResolvedValue(expected);
+
+      const result = await controller.upsert('comic-1', dto);
+
+      expect(service.upsert).toHaveBeenCalledWith('comic-1', dto);
+      expect(result).toEqual(expected);
+    });
+
+    it('should propagate NotFoundException from service', async () => {
+      service.upsert.mockRejectedValue(new Error('Not found'));
+
+      await expect(
+        controller.upsert('nonexistent', { currentChapterNumber: '1' }),
+      ).rejects.toThrow('Not found');
     });
   });
 

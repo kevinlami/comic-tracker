@@ -20,9 +20,14 @@ describe('ReadingProgressService', () => {
     comic: {
       findUnique: jest.Mock;
     };
-    chapter: {
+    comicSite: {
       findUnique: jest.Mock;
     };
+  };
+
+  const EXPECTED_INCLUDE = {
+    comic: true,
+    comicSite: { include: { site: true } },
   };
 
   const existingComic = {
@@ -36,13 +41,22 @@ describe('ReadingProgressService', () => {
     updatedAt: new Date(),
   };
 
-  const existingChapter = {
-    id: 'ch-1',
-    comicSiteId: 'cs-1',
-    number: '1.5',
-    title: 'Chapter 1.5',
-    url: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
-    publishedAt: new Date('2024-01-15'),
+  const existingSite = {
+    id: 'site-1',
+    name: 'MangaPlus',
+    baseUrl: 'https://mangaplus.shueisha.co.jp',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const existingComicSite = {
+    id: 'cs-1',
+    comicId: 'comic-1',
+    siteId: 'site-1',
+    url: 'https://mangaplus.shueisha.co.jp/solo-leveling',
+    isAvailable: true,
+    lastCheckedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -50,11 +64,15 @@ describe('ReadingProgressService', () => {
   const existingReadingProgress = {
     id: 'rp-1',
     comicId: 'comic-1',
-    currentChapterId: 'ch-1',
+    currentChapterNumber: '1.5',
+    currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+    comicSiteId: 'cs-1',
+    lastReadAt: new Date('2026-01-10T10:00:00.000Z'),
     status: 'READING',
     createdAt: new Date(),
     updatedAt: new Date(),
     comic: existingComic,
+    comicSite: { ...existingComicSite, site: existingSite },
   };
 
   beforeEach(async () => {
@@ -69,7 +87,7 @@ describe('ReadingProgressService', () => {
       comic: {
         findUnique: jest.fn(),
       },
-      chapter: {
+      comicSite: {
         findUnique: jest.fn(),
       },
     };
@@ -91,15 +109,17 @@ describe('ReadingProgressService', () => {
   describe('create', () => {
     beforeEach(() => {
       prisma.comic.findUnique.mockResolvedValue(existingComic);
-      prisma.chapter.findUnique.mockResolvedValue(existingChapter);
+      prisma.comicSite.findUnique.mockResolvedValue(existingComicSite);
     });
 
-    it('should create a ReadingProgress correctly', async () => {
+    it('should create a ReadingProgress with chapter info and site', async () => {
       prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
 
       const dto = {
         comicId: 'comic-1',
-        currentChapterId: 'ch-1',
+        currentChapterNumber: '1.5',
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+        comicSiteId: 'cs-1',
         status: 'READING',
       };
 
@@ -108,16 +128,19 @@ describe('ReadingProgressService', () => {
       expect(prisma.readingProgress.create).toHaveBeenCalledWith({
         data: {
           comicId: 'comic-1',
-          currentChapterId: 'ch-1',
+          currentChapterNumber: '1.5',
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+          comicSiteId: 'cs-1',
           status: 'READING',
+          lastReadAt: expect.any(Date),
         },
-        include: { comic: true },
+        include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(existingReadingProgress);
     });
 
-    it('should create without status using default PLAN_TO_READ', async () => {
-      const created = { ...existingReadingProgress, status: 'PLAN_TO_READ', currentChapterId: null };
+    it('should create without chapter info using lastReadAt null', async () => {
+      const created = { ...existingReadingProgress, lastReadAt: null };
       prisma.readingProgress.create.mockResolvedValue(created);
 
       const result = await service.create({ comicId: 'comic-1' });
@@ -125,36 +148,34 @@ describe('ReadingProgressService', () => {
       expect(prisma.readingProgress.create).toHaveBeenCalledWith({
         data: {
           comicId: 'comic-1',
-          currentChapterId: undefined,
+          currentChapterNumber: undefined,
+          currentChapterUrl: undefined,
+          comicSiteId: undefined,
           status: undefined,
+          lastReadAt: null,
         },
-        include: { comic: true },
+        include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(created);
     });
 
-    it('should create with currentChapterId as null', async () => {
-      const created = { ...existingReadingProgress, currentChapterId: null };
-      prisma.readingProgress.create.mockResolvedValue(created);
+    it('should trim currentChapterNumber and currentChapterUrl', async () => {
+      prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
 
-      await service.create({ comicId: 'comic-1', currentChapterId: null });
+      await service.create({
+        comicId: 'comic-1',
+        currentChapterNumber: ' 10.5 ',
+        currentChapterUrl: ' https://example.com/chapter-10.5 ',
+      });
 
       expect(prisma.readingProgress.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ currentChapterId: null }),
+          data: expect.objectContaining({
+            currentChapterNumber: '10.5',
+            currentChapterUrl: 'https://example.com/chapter-10.5',
+          }),
         }),
       );
-    });
-
-    it('should validate Chapter exists when currentChapterId is provided', async () => {
-      prisma.chapter.findUnique.mockResolvedValue(existingChapter);
-      prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
-
-      await service.create({ comicId: 'comic-1', currentChapterId: 'ch-1' });
-
-      expect(prisma.chapter.findUnique).toHaveBeenCalledWith({
-        where: { id: 'ch-1' },
-      });
     });
 
     it('should throw BadRequestException when dto is undefined', async () => {
@@ -175,12 +196,39 @@ describe('ReadingProgressService', () => {
       }
     });
 
-    it('should throw BadRequestException when currentChapterId is not string or null', async () => {
+    it('should throw BadRequestException when currentChapterNumber is not string or null', async () => {
       try {
         await service.create({
           comicId: 'comic-1',
-          currentChapterId: 123 as unknown as string,
+          currentChapterNumber: 123 as unknown as string,
         });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when currentChapterNumber has more than 3 decimal places', async () => {
+      try {
+        await service.create({ comicId: 'comic-1', currentChapterNumber: '10.1234' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when currentChapterUrl is empty', async () => {
+      try {
+        await service.create({ comicId: 'comic-1', currentChapterUrl: '   ' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when comicSiteId is an empty string', async () => {
+      try {
+        await service.create({ comicId: 'comic-1', comicSiteId: '' });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -216,14 +264,28 @@ describe('ReadingProgressService', () => {
       }
     });
 
-    it('should throw NotFoundException when chapter does not exist', async () => {
-      prisma.chapter.findUnique.mockResolvedValue(null);
+    it('should throw NotFoundException when comicSite does not exist', async () => {
+      prisma.comicSite.findUnique.mockResolvedValue(null);
 
       try {
-        await service.create({ comicId: 'comic-1', currentChapterId: 'nonexistent' });
+        await service.create({ comicId: 'comic-1', comicSiteId: 'nonexistent' });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
+      }
+    });
+
+    it('should throw BadRequestException when comicSite belongs to another comic', async () => {
+      prisma.comicSite.findUnique.mockResolvedValue({
+        ...existingComicSite,
+        comicId: 'another-comic',
+      });
+
+      try {
+        await service.create({ comicId: 'comic-1', comicSiteId: 'cs-1' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
       }
     });
 
@@ -271,14 +333,14 @@ describe('ReadingProgressService', () => {
       expect(result).toEqual([existingReadingProgress]);
     });
 
-    it('should include comic', async () => {
+    it('should include comic and comicSite with site', async () => {
       prisma.readingProgress.findMany.mockResolvedValue([existingReadingProgress]);
 
       await service.findAll();
 
       expect(prisma.readingProgress.findMany).toHaveBeenCalledWith({
         orderBy: { comicId: 'asc' },
-        include: { comic: true },
+        include: EXPECTED_INCLUDE,
       });
     });
 
@@ -299,7 +361,7 @@ describe('ReadingProgressService', () => {
 
       expect(prisma.readingProgress.findUnique).toHaveBeenCalledWith({
         where: { comicId: 'comic-1' },
-        include: { comic: true },
+        include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(existingReadingProgress);
     });
@@ -319,9 +381,10 @@ describe('ReadingProgressService', () => {
   describe('update', () => {
     beforeEach(() => {
       prisma.readingProgress.findUnique.mockResolvedValue(existingReadingProgress);
+      prisma.comicSite.findUnique.mockResolvedValue(existingComicSite);
     });
 
-    it('should update only status', async () => {
+    it('should update only status without touching lastReadAt', async () => {
       const updated = { ...existingReadingProgress, status: 'COMPLETED' };
       prisma.readingProgress.update.mockResolvedValue(updated);
 
@@ -330,69 +393,95 @@ describe('ReadingProgressService', () => {
       expect(prisma.readingProgress.update).toHaveBeenCalledWith({
         where: { comicId: 'comic-1' },
         data: { status: 'COMPLETED' },
-        include: { comic: true },
+        include: EXPECTED_INCLUDE,
+      });
+      expect(Object.keys(prisma.readingProgress.update.mock.calls[0][0].data)).toEqual([
+        'status',
+      ]);
+      expect(result).toEqual(updated);
+    });
+
+    it('should update chapter info and refresh lastReadAt', async () => {
+      const updated = {
+        ...existingReadingProgress,
+        currentChapterNumber: '2',
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+      };
+      prisma.readingProgress.update.mockResolvedValue(updated);
+
+      const result = await service.update('comic-1', {
+        currentChapterNumber: '2',
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+        comicSiteId: 'cs-1',
+      });
+
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith({
+        where: { comicId: 'comic-1' },
+        data: {
+          currentChapterNumber: '2',
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+          comicSiteId: 'cs-1',
+          lastReadAt: expect.any(Date),
+        },
+        include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(updated);
     });
 
-    it('should update only currentChapterId', async () => {
-      prisma.chapter.findUnique.mockResolvedValue(existingChapter);
-      const updated = { ...existingReadingProgress, currentChapterId: 'ch-2' };
+    it('should clear lastReadAt when both chapter fields are set to null', async () => {
+      const updated = {
+        ...existingReadingProgress,
+        currentChapterNumber: null,
+        currentChapterUrl: null,
+        comicSiteId: null,
+      };
       prisma.readingProgress.update.mockResolvedValue(updated);
 
-      const result = await service.update('comic-1', { currentChapterId: 'ch-2' });
+      await service.update('comic-1', {
+        currentChapterNumber: null,
+        currentChapterUrl: null,
+        comicSiteId: null,
+      });
 
       expect(prisma.readingProgress.update).toHaveBeenCalledWith({
         where: { comicId: 'comic-1' },
-        data: { currentChapterId: 'ch-2' },
-        include: { comic: true },
+        data: {
+          currentChapterNumber: null,
+          currentChapterUrl: null,
+          comicSiteId: null,
+          lastReadAt: null,
+        },
+        include: EXPECTED_INCLUDE,
       });
-      expect(result).toEqual(updated);
     });
 
-    it('should set currentChapterId to null', async () => {
-      const updated = { ...existingReadingProgress, currentChapterId: null };
-      prisma.readingProgress.update.mockResolvedValue(updated);
+    it('should keep lastReadAt when only currentChapterNumber is cleared', async () => {
+      prisma.readingProgress.update.mockResolvedValue(existingReadingProgress);
 
-      const result = await service.update('comic-1', { currentChapterId: null });
+      await service.update('comic-1', { currentChapterNumber: null });
 
-      expect(prisma.readingProgress.update).toHaveBeenCalledWith({
-        where: { comicId: 'comic-1' },
-        data: { currentChapterId: null },
-        include: { comic: true },
-      });
-      expect(result).toEqual(updated);
+      const callData = prisma.readingProgress.update.mock.calls[0][0].data;
+      expect(Object.keys(callData)).toEqual(['currentChapterNumber']);
     });
 
     it('should update multiple fields at once', async () => {
-      prisma.chapter.findUnique.mockResolvedValue(existingChapter);
       const updated = {
         ...existingReadingProgress,
-        currentChapterId: 'ch-2',
+        currentChapterNumber: '3',
         status: 'PAUSED',
       };
       prisma.readingProgress.update.mockResolvedValue(updated);
 
       const result = await service.update('comic-1', {
-        currentChapterId: 'ch-2',
+        currentChapterNumber: '3',
         status: 'PAUSED',
       });
 
-      expect(prisma.readingProgress.update).toHaveBeenCalledWith({
-        where: { comicId: 'comic-1' },
-        data: { currentChapterId: 'ch-2', status: 'PAUSED' },
-        include: { comic: true },
-      });
       expect(result).toEqual(updated);
-    });
-
-    it('should not send omitted fields to prisma update', async () => {
-      prisma.readingProgress.update.mockResolvedValue(existingReadingProgress);
-
-      await service.update('comic-1', { status: 'COMPLETED' });
-
       const callData = prisma.readingProgress.update.mock.calls[0][0].data;
-      expect(Object.keys(callData)).toEqual(['status']);
+      expect(callData.currentChapterNumber).toBe('3');
+      expect(callData.status).toBe('PAUSED');
+      expect(callData.lastReadAt).toEqual(expect.any(Date));
     });
 
     it('should throw NotFoundException when ReadingProgress does not exist', async () => {
@@ -406,22 +495,34 @@ describe('ReadingProgressService', () => {
       }
     });
 
-    it('should throw NotFoundException when chapter does not exist', async () => {
-      prisma.chapter.findUnique.mockResolvedValue(null);
+    it('should throw NotFoundException when comicSite does not exist', async () => {
+      prisma.comicSite.findUnique.mockResolvedValue(null);
 
       try {
-        await service.update('comic-1', { currentChapterId: 'nonexistent' });
+        await service.update('comic-1', { comicSiteId: 'nonexistent' });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
       }
     });
 
-    it('should throw BadRequestException when currentChapterId is not string or null', async () => {
+    it('should throw BadRequestException when comicSite belongs to another comic', async () => {
+      prisma.comicSite.findUnique.mockResolvedValue({
+        ...existingComicSite,
+        comicId: 'another-comic',
+      });
+
       try {
-        await service.update('comic-1', {
-          currentChapterId: 123 as unknown as string,
-        });
+        await service.update('comic-1', { comicSiteId: 'cs-1' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+    });
+
+    it('should throw BadRequestException when currentChapterNumber is invalid', async () => {
+      try {
+        await service.update('comic-1', { currentChapterNumber: 'abc' });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -431,15 +532,6 @@ describe('ReadingProgressService', () => {
     it('should throw BadRequestException when status is invalid', async () => {
       try {
         await service.update('comic-1', { status: 'INVALID' });
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeInstanceOf(BadRequestException);
-      }
-    });
-
-    it('should throw BadRequestException when status is not a string', async () => {
-      try {
-        await service.update('comic-1', { status: 123 as unknown as string });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -462,7 +554,7 @@ describe('ReadingProgressService', () => {
       }
     });
 
-    it('should rethrow non-P2002/P2025 errors', async () => {
+    it('should rethrow non-P2002 errors', async () => {
       prisma.readingProgress.update.mockRejectedValue(
         Object.assign(new Error('Connection refused'), {
           code: 'P1001',
@@ -477,6 +569,54 @@ describe('ReadingProgressService', () => {
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toBe('Connection refused');
       }
+    });
+  });
+
+  describe('upsert', () => {
+    beforeEach(() => {
+      prisma.comic.findUnique.mockResolvedValue(existingComic);
+      prisma.comicSite.findUnique.mockResolvedValue(existingComicSite);
+    });
+
+    it('should create a ReadingProgress when none exists', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue(null);
+      prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
+
+      const result = await service.upsert('comic-1', {
+        currentChapterNumber: '1.5',
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+        comicSiteId: 'cs-1',
+      });
+
+      expect(prisma.readingProgress.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            comicId: 'comic-1',
+            currentChapterNumber: '1.5',
+            comicSiteId: 'cs-1',
+          }),
+        }),
+      );
+      expect(result).toEqual(existingReadingProgress);
+    });
+
+    it('should update the existing ReadingProgress', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue(existingReadingProgress);
+      const updated = { ...existingReadingProgress, currentChapterNumber: '2' };
+      prisma.readingProgress.update.mockResolvedValue(updated);
+
+      const result = await service.upsert('comic-1', {
+        currentChapterNumber: '2',
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+      });
+
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { comicId: 'comic-1' },
+          data: expect.objectContaining({ currentChapterNumber: '2' }),
+        }),
+      );
+      expect(result).toEqual(updated);
     });
   });
 

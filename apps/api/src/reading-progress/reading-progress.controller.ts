@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -31,6 +32,15 @@ export class ReadingProgressController {
   @Get(':comicId')
   findOne(@Param('comicId') comicId: string) {
     return this.readingProgressService.findOneByComicId(comicId);
+  }
+
+  /**
+   * Cria ou atualiza o progresso do quadrinho.
+   * Operação idempotente usada para registrar a última leitura.
+   */
+  @Put(':comicId')
+  upsert(@Param('comicId') comicId: string, @Body() dto: UpdateReadingProgressDto) {
+    return this.readingProgressService.upsert(comicId, dto);
   }
 
   @Patch(':comicId')

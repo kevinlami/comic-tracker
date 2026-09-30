@@ -160,7 +160,7 @@ Evite duplicar:
 ## 10. Separação de Responsabilidades e Domínio
 
 * **Separação Frontend/Backend:** Não mova regras de negócio importantes para o frontend apenas por conveniência.
-* **Organização por Domínio:** Funcionalidades devem ser organizadas por domínio quando isso melhorar a organização (ex: `comics`, `chapters`, `reading`, `sites`).
+* **Organização por Domínio:** Funcionalidades devem ser organizadas por domínio quando isso melhorar a organização (ex: `comics`, `sites`, `comic-sites`, `reading-progress`).
 * Não crie todos os módulos ou diretórios antecipadamente; crie conforme a necessidade real.
 
 ---

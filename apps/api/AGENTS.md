@@ -38,7 +38,7 @@ Uma possível organização é:
 
 `src/modules/comics/`
 
-`src/modules/chapters/`
+`src/modules/comic-sites/`
 
 `src/modules/reading/`
 
@@ -81,7 +81,7 @@ Organizar funcionalidades maiores em módulos de domínio.
 Exemplos:
 
 - `ComicsModule`;
-- `ChaptersModule`;
+- `ComicSitesModule`;
 - `ReadingModule`;
 - `SitesModule`.
 

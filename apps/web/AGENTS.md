@@ -137,7 +137,6 @@ Exemplo:
 ```text
 features/
 ├── comics/
-├── chapters/
 ├── reading/
 └── sites/
 ```
@@ -198,7 +197,7 @@ Exemplos:
 
 - `/comics?search=one-piece`
 - `/comics?status=reading`
-- `/chapters?comic=123`
+- `/sites?active=true`
 
 Não duplicar desnecessariamente o mesmo estado na URL e em um estado
 global.
@@ -219,7 +218,7 @@ Exemplo de organização:
 
 `services/comics.service.ts`
 
-`services/chapters.service.ts`
+`services/reading-progress.service.ts`
 
 `services/sites.service.ts`
 

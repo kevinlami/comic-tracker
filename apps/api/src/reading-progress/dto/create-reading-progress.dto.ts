@@ -1,5 +1,7 @@
 export class CreateReadingProgressDto {
   comicId: string;
-  currentChapterId?: string | null;
+  currentChapterNumber?: string | null;
+  currentChapterUrl?: string | null;
+  comicSiteId?: string | null;
   status?: string;
 }

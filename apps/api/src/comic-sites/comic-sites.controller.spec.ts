@@ -48,8 +48,6 @@ describe('ComicSitesController', () => {
         comicId: 'comic-1',
         siteId: 'site-1',
         url: 'https://example.com/solo-leveling',
-        isAvailable: true,
-        lastCheckedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         comic: { id: 'comic-1', title: 'Solo Leveling' },

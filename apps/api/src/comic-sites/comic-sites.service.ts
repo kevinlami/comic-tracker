@@ -25,18 +25,6 @@ export class ComicSitesService {
       throw new BadRequestException('url is required and must not be empty');
     }
 
-    if (dto.isAvailable !== undefined && typeof dto.isAvailable !== 'boolean') {
-      throw new BadRequestException('isAvailable must be a boolean');
-    }
-
-    if (
-      dto.lastCheckedAt !== undefined &&
-      dto.lastCheckedAt !== null &&
-      !(dto.lastCheckedAt instanceof Date)
-    ) {
-      throw new BadRequestException('lastCheckedAt must be a Date or null');
-    }
-
     const comic = await this.prisma.comic.findUnique({
       where: { id: dto.comicId },
     });
@@ -57,8 +45,6 @@ export class ComicSitesService {
           comicId: dto.comicId,
           siteId: dto.siteId,
           url: dto.url.trim(),
-          isAvailable: dto.isAvailable,
-          lastCheckedAt: dto.lastCheckedAt,
         },
         include: {
           comic: true,
@@ -137,18 +123,6 @@ export class ComicSitesService {
       }
     }
 
-    if (dto.isAvailable !== undefined && typeof dto.isAvailable !== 'boolean') {
-      throw new BadRequestException('isAvailable must be a boolean');
-    }
-
-    if (
-      dto.lastCheckedAt !== undefined &&
-      dto.lastCheckedAt !== null &&
-      !(dto.lastCheckedAt instanceof Date)
-    ) {
-      throw new BadRequestException('lastCheckedAt must be a Date or null');
-    }
-
     const data: Record<string, unknown> = {};
 
     if (dto.comicId !== undefined) {
@@ -159,12 +133,6 @@ export class ComicSitesService {
     }
     if (dto.url !== undefined) {
       data.url = dto.url.trim();
-    }
-    if (dto.isAvailable !== undefined) {
-      data.isAvailable = dto.isAvailable;
-    }
-    if (dto.lastCheckedAt !== undefined) {
-      data.lastCheckedAt = dto.lastCheckedAt;
     }
 
     try {

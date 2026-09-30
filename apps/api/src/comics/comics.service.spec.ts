@@ -240,6 +240,12 @@ describe('ComicsService', () => {
   });
 
   describe('findAll', () => {
+    const EXPECTED_INCLUDE = {
+      readingProgress: {
+        include: { comicSite: { include: { site: true } } },
+      },
+    };
+
     it('should return an empty array when no comics exist', async () => {
       prisma.comic.findMany.mockResolvedValue([]);
 
@@ -247,7 +253,9 @@ describe('ComicsService', () => {
 
       expect(result).toEqual([]);
       expect(prisma.comic.findMany).toHaveBeenCalledWith({
+        where: {},
         orderBy: { title: 'asc' },
+        include: EXPECTED_INCLUDE,
       });
     });
 
@@ -261,6 +269,49 @@ describe('ComicsService', () => {
       const result = await service.findAll();
 
       expect(result).toEqual(comics);
+    });
+
+    it('should filter by title search case-insensitive', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: '  one piece  ' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { title: { contains: 'one piece', mode: 'insensitive' } },
+        }),
+      );
+    });
+
+    it('should filter by reading status', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'READING' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { readingProgress: { status: 'READING' } },
+        }),
+      );
+    });
+
+    it('should ignore empty search and status', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: '   ', status: '' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it('should throw BadRequestException when status is invalid', async () => {
+      try {
+        await service.findAll({ status: 'INVALID' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
     });
   });
 

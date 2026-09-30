@@ -2,7 +2,9 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateComicDto } from './dto/create-comic.dto';
 import { UpdateComicDto } from './dto/update-comic.dto';
-import { ComicType, ComicStatus } from '../generated/enums';
+import { ListComicsQueryDto } from './dto/list-comics.query.dto';
+import { ComicType, ComicStatus, ReadingStatus } from '../generated/enums';
+import { validateReadingStatus } from '../common/reading-status';
 
 const VALID_COMIC_TYPES = new Set(Object.values(ComicType));
 const VALID_COMIC_STATUSES = new Set(Object.values(ComicStatus));
@@ -57,10 +59,40 @@ export class ComicsService {
     });
   }
 
-  async findAll() {
+  /**
+   * Lista quadrinhos com filtros opcionais para o dashboard.
+   *
+   * - `search`: busca case-insensitive no título;
+   * - `status`: filtra pelo status de leitura do progresso.
+   *
+   * Sem paginação: o acervo é pessoal e cabe em memória.
+   */
+  async findAll(query?: ListComicsQueryDto) {
+    const search =
+      typeof query?.search === 'string' ? query.search.trim() : '';
+    const status =
+      typeof query?.status === 'string' && query.status.trim().length > 0
+        ? query.status.trim()
+        : undefined;
+
+    validateReadingStatus(status);
+
     return this.prisma.comic.findMany({
+      where: {
+        ...(search.length > 0
+          ? { title: { contains: search, mode: 'insensitive' } }
+          : {}),
+        ...(status !== undefined
+          ? { readingProgress: { status: status as ReadingStatus } }
+          : {}),
+      },
       orderBy: {
         title: 'asc',
+      },
+      include: {
+        readingProgress: {
+          include: { comicSite: { include: { site: true } } },
+        },
       },
     });
   }

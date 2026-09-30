@@ -8,31 +8,33 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReadingProgressDto } from './dto/create-reading-progress.dto';
 import { UpdateReadingProgressDto } from './dto/update-reading-progress.dto';
 import { ReadingStatus } from '../generated/enums';
-
-const VALID_READING_STATUSES = new Set(Object.values(ReadingStatus));
+import { validateReadingStatus } from '../common/reading-status';
 
 const CHAPTER_NUMBER_REGEX = /^-?\d+(\.\d{1,3})?$/;
 
-type ChapterFields = {
+const PROGRESS_INCLUDE = {
+  comic: true,
+  comicSite: { include: { site: true } },
+};
+
+type ProgressFields = {
   currentChapterNumber?: string | null;
   currentChapterUrl?: string | null;
   comicSiteId?: string | null;
+  status?: string;
 };
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as { code: string }).code === 'P2002'
+  );
+}
 
 @Injectable()
 export class ReadingProgressService {
   constructor(private readonly prisma: PrismaService) {}
-
-  private validateStatus(status: unknown): void {
-    if (status === undefined || status === null) {
-      return;
-    }
-    if (typeof status !== 'string' || !VALID_READING_STATUSES.has(status as ReadingStatus)) {
-      throw new BadRequestException(
-        `Invalid status. Allowed values: ${Object.values(ReadingStatus).join(', ')}`,
-      );
-    }
-  }
 
   private validateChapterNumber(value: unknown): void {
     if (value === undefined || value === null) {
@@ -73,7 +75,7 @@ export class ReadingProgressService {
     }
   }
 
-  private validateChapterFields(dto: ChapterFields): void {
+  private validateChapterFields(dto: ProgressFields): void {
     this.validateChapterNumber(dto.currentChapterNumber);
     this.validateChapterUrl(dto.currentChapterUrl);
     this.validateComicSiteId(dto.comicSiteId);
@@ -96,25 +98,11 @@ export class ReadingProgressService {
     }
   }
 
-  async create(dto: CreateReadingProgressDto) {
-    if (!dto || typeof dto.comicId !== 'string' || dto.comicId.trim().length === 0) {
-      throw new BadRequestException('comicId is required and must not be empty');
-    }
-
-    this.validateChapterFields(dto);
-    this.validateStatus(dto.status);
-
-    const comic = await this.prisma.comic.findUnique({
-      where: { id: dto.comicId },
-    });
-    if (!comic) {
-      throw new NotFoundException(`Comic with id "${dto.comicId}" not found`);
-    }
-
-    if (dto.comicSiteId !== undefined && dto.comicSiteId !== null) {
-      await this.assertComicSiteBelongsToComic(dto.comicSiteId, dto.comicId);
-    }
-
+  /**
+   * Monta os dados de criação: valores aparados e `lastReadAt` derivado
+   * de existir informação de capítulo.
+   */
+  private buildCreateData(comicId: string, dto: ProgressFields) {
     const currentChapterNumber =
       typeof dto.currentChapterNumber === 'string'
         ? dto.currentChapterNumber.trim()
@@ -125,73 +113,21 @@ export class ReadingProgressService {
         : dto.currentChapterUrl;
     const hasChapterInfo = currentChapterNumber != null || currentChapterUrl != null;
 
-    try {
-      return await this.prisma.readingProgress.create({
-        data: {
-          comicId: dto.comicId,
-          currentChapterNumber,
-          currentChapterUrl,
-          comicSiteId: dto.comicSiteId,
-          status: dto.status as ReadingStatus | undefined,
-          lastReadAt: hasChapterInfo ? new Date() : null,
-        },
-        include: {
-          comic: true,
-          comicSite: { include: { site: true } },
-        },
-      });
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        (error as { code: string }).code === 'P2002'
-      ) {
-        throw new ConflictException(
-          `A ReadingProgress already exists for comicId "${dto.comicId}"`,
-        );
-      }
-      throw error;
-    }
+    return {
+      comicId,
+      currentChapterNumber,
+      currentChapterUrl,
+      comicSiteId: dto.comicSiteId,
+      status: dto.status as ReadingStatus | undefined,
+      lastReadAt: hasChapterInfo ? new Date() : null,
+    };
   }
 
-  async findAll() {
-    return this.prisma.readingProgress.findMany({
-      orderBy: { comicId: 'asc' },
-      include: {
-        comic: true,
-        comicSite: { include: { site: true } },
-      },
-    });
-  }
-
-  async findOneByComicId(comicId: string) {
-    const readingProgress = await this.prisma.readingProgress.findUnique({
-      where: { comicId },
-      include: {
-        comic: true,
-        comicSite: { include: { site: true } },
-      },
-    });
-
-    if (!readingProgress) {
-      throw new NotFoundException(
-        `ReadingProgress for comic with id "${comicId}" not found`,
-      );
-    }
-
-    return readingProgress;
-  }
-
-  async update(comicId: string, dto: UpdateReadingProgressDto) {
-    await this.findOneByComicId(comicId);
-
-    this.validateChapterFields(dto);
-    this.validateStatus(dto.status);
-
-    if (dto.comicSiteId !== undefined && dto.comicSiteId !== null) {
-      await this.assertComicSiteBelongsToComic(dto.comicSiteId, comicId);
-    }
-
+  /**
+   * Monta os dados de atualização apenas com os campos enviados (PATCH),
+   * aplicando as regras de `lastReadAt`.
+   */
+  private buildUpdateData(dto: ProgressFields): Record<string, unknown> {
     const data: Record<string, unknown> = {};
 
     if (dto.currentChapterNumber !== undefined) {
@@ -228,21 +164,100 @@ export class ReadingProgressService {
       }
     }
 
+    return data;
+  }
+
+  async create(dto: CreateReadingProgressDto) {
+    if (!dto || typeof dto.comicId !== 'string' || dto.comicId.trim().length === 0) {
+      throw new BadRequestException('comicId is required and must not be empty');
+    }
+
+    this.validateChapterFields(dto);
+    validateReadingStatus(dto.status);
+
+    const comic = await this.prisma.comic.findUnique({
+      where: { id: dto.comicId },
+    });
+    if (!comic) {
+      throw new NotFoundException(`Comic with id "${dto.comicId}" not found`);
+    }
+
+    if (dto.comicSiteId !== undefined && dto.comicSiteId !== null) {
+      await this.assertComicSiteBelongsToComic(dto.comicSiteId, dto.comicId);
+    }
+
+    try {
+      return await this.prisma.readingProgress.create({
+        data: this.buildCreateData(dto.comicId, dto),
+        include: PROGRESS_INCLUDE,
+      });
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          `A ReadingProgress already exists for comicId "${dto.comicId}"`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Lista o progresso ordenado pelas últimas leituras
+   * (`lastReadAt` desc, quadrinhos nunca lidos no fim).
+   *
+   * `status` filtra pelo status de leitura quando informado.
+   */
+  async findAll(status?: string) {
+    const normalizedStatus =
+      typeof status === 'string' && status.trim().length > 0
+        ? status.trim()
+        : undefined;
+
+    validateReadingStatus(normalizedStatus);
+
+    return this.prisma.readingProgress.findMany({
+      where:
+        normalizedStatus !== undefined
+          ? { status: normalizedStatus as ReadingStatus }
+          : undefined,
+      orderBy: { lastReadAt: { sort: 'desc', nulls: 'last' } },
+      include: PROGRESS_INCLUDE,
+    });
+  }
+
+  async findOneByComicId(comicId: string) {
+    const readingProgress = await this.prisma.readingProgress.findUnique({
+      where: { comicId },
+      include: PROGRESS_INCLUDE,
+    });
+
+    if (!readingProgress) {
+      throw new NotFoundException(
+        `ReadingProgress for comic with id "${comicId}" not found`,
+      );
+    }
+
+    return readingProgress;
+  }
+
+  async update(comicId: string, dto: UpdateReadingProgressDto) {
+    await this.findOneByComicId(comicId);
+
+    this.validateChapterFields(dto);
+    validateReadingStatus(dto.status);
+
+    if (dto.comicSiteId !== undefined && dto.comicSiteId !== null) {
+      await this.assertComicSiteBelongsToComic(dto.comicSiteId, comicId);
+    }
+
     try {
       return await this.prisma.readingProgress.update({
         where: { comicId },
-        data,
-        include: {
-          comic: true,
-          comicSite: { include: { site: true } },
-        },
+        data: this.buildUpdateData(dto),
+        include: PROGRESS_INCLUDE,
       });
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        (error as { code: string }).code === 'P2002'
-      ) {
+      if (isUniqueConstraintError(error)) {
         throw new ConflictException(
           `A ReadingProgress already exists for comicId "${comicId}"`,
         );
@@ -252,26 +267,47 @@ export class ReadingProgressService {
   }
 
   /**
-   * Cria ou atualiza o progresso em uma única operação.
+   * Cria ou atualiza o progresso em uma única operação atômica
+   * (`upsert` do Prisma → `INSERT ... ON CONFLICT` no Postgres).
+   *
    * É o ponto de entrada pensado para a futura extensão do navegador:
-   * uma única requisição para registrar a última leitura.
+   * uma única requisição para registrar a última leitura, sem risco de
+   * 409 quando duas chamadas chegam ao mesmo tempo.
    */
   async upsert(comicId: string, dto: UpdateReadingProgressDto) {
-    const existing = await this.prisma.readingProgress.findUnique({
-      where: { comicId },
-    });
-
-    if (existing) {
-      return this.update(comicId, dto);
+    if (typeof comicId !== 'string' || comicId.trim().length === 0) {
+      throw new BadRequestException('comicId is required and must not be empty');
     }
 
-    return this.create({
-      comicId,
-      currentChapterNumber: dto.currentChapterNumber,
-      currentChapterUrl: dto.currentChapterUrl,
-      comicSiteId: dto.comicSiteId,
-      status: dto.status,
+    this.validateChapterFields(dto);
+    validateReadingStatus(dto.status);
+
+    const comic = await this.prisma.comic.findUnique({
+      where: { id: comicId },
     });
+    if (!comic) {
+      throw new NotFoundException(`Comic with id "${comicId}" not found`);
+    }
+
+    if (dto.comicSiteId !== undefined && dto.comicSiteId !== null) {
+      await this.assertComicSiteBelongsToComic(dto.comicSiteId, comicId);
+    }
+
+    try {
+      return await this.prisma.readingProgress.upsert({
+        where: { comicId },
+        create: this.buildCreateData(comicId, dto),
+        update: this.buildUpdateData(dto),
+        include: PROGRESS_INCLUDE,
+      });
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          `A ReadingProgress already exists for comicId "${comicId}"`,
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(comicId: string) {

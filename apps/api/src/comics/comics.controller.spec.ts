@@ -90,16 +90,24 @@ describe('ComicsController', () => {
       ];
       service.findAll.mockResolvedValue(comics);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({});
 
+      expect(service.findAll).toHaveBeenCalledWith({});
       expect(result).toEqual(comics);
     });
 
-    it('should return empty array when no comics', async () => {
+    it('should forward query filters to the service', async () => {
       service.findAll.mockResolvedValue([]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({
+        search: 'one',
+        status: 'READING',
+      });
 
+      expect(service.findAll).toHaveBeenCalledWith({
+        search: 'one',
+        status: 'READING',
+      });
       expect(result).toEqual([]);
     });
   });

@@ -89,6 +89,14 @@ describe('ReadingProgressController', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should forward the status filter to the service', async () => {
+      service.findAll.mockResolvedValue([]);
+
+      await controller.findAll('READING');
+
+      expect(service.findAll).toHaveBeenCalledWith('READING');
+    });
   });
 
   describe('findOne', () => {

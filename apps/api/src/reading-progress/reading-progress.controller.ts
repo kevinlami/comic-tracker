@@ -7,6 +7,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -25,8 +26,8 @@ export class ReadingProgressController {
   }
 
   @Get()
-  findAll() {
-    return this.readingProgressService.findAll();
+  findAll(@Query('status') status?: string) {
+    return this.readingProgressService.findAll(status);
   }
 
   @Get(':comicId')

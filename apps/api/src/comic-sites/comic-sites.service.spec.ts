@@ -50,8 +50,6 @@ describe('ComicSitesService', () => {
     comicId: 'comic-1',
     siteId: 'site-1',
     url: 'https://mangaplus.shueisha.co.jp/solo-leveling',
-    isAvailable: true,
-    lastCheckedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     comic: existingComic,
@@ -111,38 +109,10 @@ describe('ComicSitesService', () => {
           comicId: 'comic-1',
           siteId: 'site-1',
           url: 'https://mangaplus.shueisha.co.jp/solo-leveling',
-          isAvailable: undefined,
-          lastCheckedAt: undefined,
         },
         include: { comic: true, site: true },
       });
       expect(result).toEqual(existingComicSite);
-    });
-
-    it('should create with isAvailable and lastCheckedAt', async () => {
-      const now = new Date();
-      const created = { ...existingComicSite, isAvailable: false, lastCheckedAt: now };
-      prisma.comicSite.create.mockResolvedValue(created);
-
-      const result = await service.create({
-        comicId: 'comic-1',
-        siteId: 'site-1',
-        url: 'https://example.com',
-        isAvailable: false,
-        lastCheckedAt: now,
-      });
-
-      expect(prisma.comicSite.create).toHaveBeenCalledWith({
-        data: {
-          comicId: 'comic-1',
-          siteId: 'site-1',
-          url: 'https://example.com',
-          isAvailable: false,
-          lastCheckedAt: now,
-        },
-        include: { comic: true, site: true },
-      });
-      expect(result).toEqual(created);
     });
 
     it('should trim url', async () => {
@@ -195,51 +165,6 @@ describe('ComicSitesService', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
       }
-    });
-
-    it('should throw BadRequestException when isAvailable is not boolean', async () => {
-      try {
-        await service.create({
-          comicId: 'comic-1',
-          siteId: 'site-1',
-          url: 'https://example.com',
-          isAvailable: 'yes' as unknown as boolean,
-        });
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeInstanceOf(BadRequestException);
-      }
-    });
-
-    it('should throw BadRequestException when lastCheckedAt is invalid', async () => {
-      try {
-        await service.create({
-          comicId: 'comic-1',
-          siteId: 'site-1',
-          url: 'https://example.com',
-          lastCheckedAt: 'not-a-date' as unknown as Date,
-        });
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeInstanceOf(BadRequestException);
-      }
-    });
-
-    it('should accept lastCheckedAt as null', async () => {
-      prisma.comicSite.create.mockResolvedValue(existingComicSite);
-
-      await service.create({
-        comicId: 'comic-1',
-        siteId: 'site-1',
-        url: 'https://example.com',
-        lastCheckedAt: null,
-      });
-
-      expect(prisma.comicSite.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ lastCheckedAt: null }),
-        }),
-      );
     });
 
     it('should throw NotFoundException when comic does not exist', async () => {
@@ -387,49 +312,6 @@ describe('ComicSitesService', () => {
       expect(result).toEqual(updated);
     });
 
-    it('should update only isAvailable', async () => {
-      const updated = { ...existingComicSite, isAvailable: false };
-      prisma.comicSite.update.mockResolvedValue(updated);
-
-      const result = await service.update('cs-1', { isAvailable: false });
-
-      expect(prisma.comicSite.update).toHaveBeenCalledWith({
-        where: { id: 'cs-1' },
-        data: { isAvailable: false },
-        include: { comic: true, site: true },
-      });
-      expect(result).toEqual(updated);
-    });
-
-    it('should update lastCheckedAt', async () => {
-      const now = new Date();
-      const updated = { ...existingComicSite, lastCheckedAt: now };
-      prisma.comicSite.update.mockResolvedValue(updated);
-
-      const result = await service.update('cs-1', { lastCheckedAt: now });
-
-      expect(prisma.comicSite.update).toHaveBeenCalledWith({
-        where: { id: 'cs-1' },
-        data: { lastCheckedAt: now },
-        include: { comic: true, site: true },
-      });
-      expect(result).toEqual(updated);
-    });
-
-    it('should set lastCheckedAt to null', async () => {
-      const updated = { ...existingComicSite, lastCheckedAt: null };
-      prisma.comicSite.update.mockResolvedValue(updated);
-
-      const result = await service.update('cs-1', { lastCheckedAt: null });
-
-      expect(prisma.comicSite.update).toHaveBeenCalledWith({
-        where: { id: 'cs-1' },
-        data: { lastCheckedAt: null },
-        include: { comic: true, site: true },
-      });
-      expect(result).toEqual(updated);
-    });
-
     it('should update comicId and verify new comic exists', async () => {
       const newComic = { ...existingComic, id: 'comic-2', title: 'One Piece' };
       prisma.comic.findUnique.mockResolvedValue(newComic);
@@ -455,21 +337,24 @@ describe('ComicSitesService', () => {
     });
 
     it('should update multiple fields at once', async () => {
+      const newSite = { ...existingSite, id: 'site-2', name: 'Viz' };
+      prisma.site.findUnique.mockResolvedValue(newSite);
       const updated = {
         ...existingComicSite,
         url: 'https://new-url.com',
-        isAvailable: false,
+        siteId: 'site-2',
+        site: newSite,
       };
       prisma.comicSite.update.mockResolvedValue(updated);
 
       const result = await service.update('cs-1', {
         url: 'https://new-url.com',
-        isAvailable: false,
+        siteId: 'site-2',
       });
 
       expect(prisma.comicSite.update).toHaveBeenCalledWith({
         where: { id: 'cs-1' },
-        data: { url: 'https://new-url.com', isAvailable: false },
+        data: { url: 'https://new-url.com', siteId: 'site-2' },
         include: { comic: true, site: true },
       });
       expect(result).toEqual(updated);

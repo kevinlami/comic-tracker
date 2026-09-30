@@ -38,6 +38,8 @@ com validação apenas na aplicação: podia apontar para capítulo inexistente
    sem integridade referencial.
 4. **Adicionar `PUT /reading-progress/:comicId`** (upsert idempotente): uma
    única requisição para a futura extensão criar ou atualizar o progresso.
+   Implementado com o `upsert` nativo do Prisma (`INSERT ... ON CONFLICT`
+   atômico), sem corrida entre chamadas simultâneas.
 5. Validar no service que, quando informado, o `comicSiteId` **pertence ao
    quadrinho** recebido.
 
@@ -60,5 +62,7 @@ com validação apenas na aplicação: podia apontar para capítulo inexistente
   excluído — se voltar, será uma tabela nova, aditiva); a URL por site só é
   mantida para o último capítulo lido; múltiplos sites por quadrinho guardam
   apenas o site da última leitura.
-- `ComicSite.isAvailable` e `ComicSite.lastCheckedAt` permanecem como legado
-  da era de verificação de disponibilidade — decisão de remoção adiada.
+- `ComicSite.isAvailable` e `ComicSite.lastCheckedAt`, legado da era de
+  verificação de disponibilidade, foram **removidos** em 2026-09-30 (migration
+  `remove_comic_site_availability_legacy`): a API aceitava os campos, mas nada
+  no sistema os atualizava — dado morto que só enganava quem lesse o código.

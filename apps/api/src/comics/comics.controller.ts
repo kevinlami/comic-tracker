@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ComicsService } from './comics.service';
 import { CreateComicDto } from './dto/create-comic.dto';
 import { UpdateComicDto } from './dto/update-comic.dto';
+import { ListComicsQueryDto } from './dto/list-comics.query.dto';
 
 @Controller('comics')
 export class ComicsController {
@@ -14,8 +15,8 @@ export class ComicsController {
   }
 
   @Get()
-  findAll() {
-    return this.comicsService.findAll();
+  findAll(@Query() query: ListComicsQueryDto) {
+    return this.comicsService.findAll(query);
   }
 
   @Get(':id')

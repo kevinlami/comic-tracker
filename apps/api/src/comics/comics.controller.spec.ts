@@ -102,11 +102,13 @@ describe('ComicsController', () => {
       const result = await controller.findAll({
         search: 'one',
         status: 'READING',
+        order: 'recent',
       });
 
       expect(service.findAll).toHaveBeenCalledWith({
         search: 'one',
         status: 'READING',
+        order: 'recent',
       });
       expect(result).toEqual([]);
     });

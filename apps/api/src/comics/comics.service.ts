@@ -63,7 +63,8 @@ export class ComicsService {
    * Lista quadrinhos com filtros opcionais para o dashboard.
    *
    * - `search`: busca case-insensitive no título;
-   * - `status`: filtra pelo status de leitura do progresso.
+   * - `status`: filtra pelo status de leitura do progresso;
+   * - `order`: `title` (padrão, A–Z) ou `recent` (cadastro mais recente).
    *
    * Sem paginação: o acervo é pessoal e cabe em memória.
    */
@@ -74,8 +75,18 @@ export class ComicsService {
       typeof query?.status === 'string' && query.status.trim().length > 0
         ? query.status.trim()
         : undefined;
+    const order =
+      typeof query?.order === 'string' && query.order.trim().length > 0
+        ? query.order.trim()
+        : 'title';
 
     validateReadingStatus(status);
+
+    if (order !== 'title' && order !== 'recent') {
+      throw new BadRequestException(
+        'Invalid order. Allowed values: title, recent',
+      );
+    }
 
     return this.prisma.comic.findMany({
       where: {
@@ -86,12 +97,13 @@ export class ComicsService {
           ? { readingProgress: { status: status as ReadingStatus } }
           : {}),
       },
-      orderBy: {
-        title: 'asc',
-      },
+      orderBy: order === 'recent' ? { createdAt: 'desc' } : { title: 'asc' },
       include: {
         readingProgress: {
           include: { comicSite: { include: { site: true } } },
+        },
+        sites: {
+          include: { site: true },
         },
       },
     });

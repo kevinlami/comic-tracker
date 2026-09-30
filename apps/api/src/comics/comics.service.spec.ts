@@ -244,6 +244,9 @@ describe('ComicsService', () => {
       readingProgress: {
         include: { comicSite: { include: { site: true } } },
       },
+      sites: {
+        include: { site: true },
+      },
     };
 
     it('should return an empty array when no comics exist', async () => {
@@ -303,6 +306,25 @@ describe('ComicsService', () => {
       expect(prisma.comic.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: {} }),
       );
+    });
+
+    it('should order by most recently added when order is recent', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ order: 'recent' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+    });
+
+    it('should throw BadRequestException when order is invalid', async () => {
+      try {
+        await service.findAll({ order: 'whenever' });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
     });
 
     it('should throw BadRequestException when status is invalid', async () => {

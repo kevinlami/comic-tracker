@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { MainNav } from "@/components/main-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,18 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   Comic Tracker
                 </span>
               </Link>
-              <nav
-                aria-label="Navegação principal"
-                className="hidden md:flex items-center gap-4"
-              >
-                <Link
-                  href="/"
-                  aria-current="page"
-                  className="text-label-md text-primary rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
-                >
-                  Acervo
-                </Link>
-              </nav>
+              <MainNav />
             </div>
           </div>
         </header>

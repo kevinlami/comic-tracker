@@ -7,6 +7,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import Link from "next/link";
 import type { Site } from "@/types/comic";
 import {
   addComicSiteAction,
@@ -58,8 +59,14 @@ export function AddLinkSection({
         sites.length === 0 ? (
           <div className="p-5 rounded-lg bg-surface-container">
             <p className="text-body-sm text-on-surface-variant">
-              Nenhum site cadastrado ainda — cadastre um site antes de criar
-              vínculos de leitura.
+              Nenhum site cadastrado ainda —{" "}
+              <Link
+                href="/sites/new"
+                className="text-primary underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+              >
+                cadastre um site
+              </Link>{" "}
+              antes de criar vínculos de leitura.
             </p>
           </div>
         ) : (

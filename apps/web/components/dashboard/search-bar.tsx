@@ -9,13 +9,24 @@ const DEBOUNCE_MS = 300;
 interface SearchBarProps {
   /** Valor atual da busca vindo da URL (server-rendered). */
   initialSearch: string;
+  /** Rota em que a busca é gravada (padrão: a raiz do acervo). */
+  path?: string;
+  /** Placeholder do campo. */
+  placeholder?: string;
+  /** Rótulo acessível do campo. */
+  label?: string;
 }
 
 /**
  * Busca por título com debounce: o texto é gravado na URL (`?search=`)
  * após 300ms de inatividade, atualizando o resultado via servidor.
  */
-export function SearchBar({ initialSearch }: SearchBarProps) {
+export function SearchBar({
+  initialSearch,
+  path = "/",
+  placeholder = "Buscar por título...",
+  label = "Buscar por título",
+}: SearchBarProps) {
   const router = useRouter();
   const [value, setValue] = useState(initialSearch);
 
@@ -53,13 +64,13 @@ export function SearchBar({ initialSearch }: SearchBarProps) {
         params.delete("search");
       }
       const queryString = params.toString();
-      router.replace(queryString ? `/?${queryString}` : "/", {
+      router.replace(queryString ? `${path}?${queryString}` : path, {
         scroll: false,
       });
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [value, router]);
+  }, [value, router, path]);
 
   return (
     <div className="relative w-full lg:max-w-sm">
@@ -70,14 +81,14 @@ export function SearchBar({ initialSearch }: SearchBarProps) {
         <SearchIcon className="w-5 h-5" />
       </span>
       <label htmlFor="comic-search" className="sr-only">
-        Buscar por título
+        {label}
       </label>
       <input
         id="comic-search"
         type="text"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="Buscar por título..."
+        placeholder={placeholder}
         autoComplete="off"
         className="w-full bg-surface-container-low text-on-surface placeholder:text-outline text-body-md rounded-xl pl-10 pr-4 py-2.5 shadow-sm transition-colors focus:outline-none focus:bg-surface-container-high focus-visible:ring-2 focus-visible:ring-primary"
       />

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReadingProgressDto } from './dto/create-reading-progress.dto';
 import { UpdateReadingProgressDto } from './dto/update-reading-progress.dto';
 import { ReadingStatus } from '../generated/enums';
+import { Prisma } from '../generated/client';
 import { validateReadingStatus } from '../common/reading-status';
 
 const CHAPTER_NUMBER_REGEX = /^-?\d+(\.\d{1,3})?$/;
@@ -22,6 +23,15 @@ type ProgressFields = {
   currentChapterUrl?: string | null;
   comicSiteId?: string | null;
   status?: string;
+};
+
+/**
+ * Destino da URL do capítulo: a URL pertence ao vínculo (`ComicSite`), não ao
+ * progresso — cada site guarda a última URL lida nele.
+ */
+type ChapterUrlTarget = {
+  comicSiteId: string;
+  currentChapterUrl: string | null;
 };
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -98,9 +108,98 @@ export class ReadingProgressService {
     }
   }
 
+  /** URL aparada — ou `null`/`undefined` quando limpa/ausente no PATCH. */
+  private normalizeChapterUrl(dto: ProgressFields): string | null | undefined {
+    const value = dto.currentChapterUrl;
+    if (value === undefined || value === null) {
+      return value;
+    }
+    return value.trim();
+  }
+
+  /**
+   * Resolve o vínculo que recebe a URL do capítulo.
+   *
+   * O destino é o `comicSiteId` enviado ou — quando o PATCH não envia o site —
+   * o site já apontado pelo progresso. Sem vínculo não há onde gravar: informar
+   * uma URL nesse caso é erro; limpar (`null`) é ignorado, pois não existe
+   * vínculo alvo.
+   */
+  private resolveChapterUrlTarget(
+    url: string | null | undefined,
+    dtoSiteId: string | null | undefined,
+    currentSiteId: string | null | undefined,
+  ): ChapterUrlTarget | null {
+    if (url === undefined) {
+      return null;
+    }
+
+    const targetSiteId =
+      dtoSiteId !== undefined ? dtoSiteId : (currentSiteId ?? null);
+
+    if (url === null) {
+      return targetSiteId === null
+        ? null
+        : { comicSiteId: targetSiteId, currentChapterUrl: null };
+    }
+
+    if (targetSiteId === null) {
+      throw new BadRequestException(
+        'comicSiteId is required to save currentChapterUrl',
+      );
+    }
+
+    return { comicSiteId: targetSiteId, currentChapterUrl: url };
+  }
+
+  /**
+   * Grava a URL do capítulo no vínculo de destino.
+   */
+  private async saveChapterUrl(
+    client: Pick<PrismaService, 'comicSite'>,
+    target: ChapterUrlTarget,
+  ): Promise<void> {
+    await client.comicSite.update({
+      where: { id: target.comicSiteId },
+      data: { currentChapterUrl: target.currentChapterUrl },
+    });
+  }
+
+  /**
+   * Executa a operação de progresso e, quando houver URL a gravar, a escrita no
+   * vínculo na mesma transação — progresso e `ComicSite` não divergem.
+   */
+  private async persistProgress<T>(
+    target: ChapterUrlTarget | null,
+    operation: (client: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    if (target === null) {
+      return operation(this.prisma);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.saveChapterUrl(tx, target);
+      return operation(tx);
+    });
+  }
+
+  /**
+   * Site atual do progresso: destino da URL quando o PATCH não envia
+   * `comicSiteId`.
+   */
+  private async resolveCurrentComicSiteId(comicId: string): Promise<string | null> {
+    const progress = await this.prisma.readingProgress.findUnique({
+      where: { comicId },
+      select: { comicSiteId: true },
+    });
+    return progress?.comicSiteId ?? null;
+  }
+
   /**
    * Monta os dados de criação: valores aparados e `lastReadAt` derivado
    * de existir informação de capítulo.
+   *
+   * A URL do capítulo não é gravada aqui: ela fica no vínculo (`ComicSite`).
    */
   private buildCreateData(comicId: string, dto: ProgressFields) {
     const currentChapterNumber =
@@ -116,7 +215,6 @@ export class ReadingProgressService {
     return {
       comicId,
       currentChapterNumber,
-      currentChapterUrl,
       comicSiteId: dto.comicSiteId,
       status: dto.status as ReadingStatus | undefined,
       lastReadAt: hasChapterInfo ? new Date() : null,
@@ -126,6 +224,9 @@ export class ReadingProgressService {
   /**
    * Monta os dados de atualização apenas com os campos enviados (PATCH),
    * aplicando as regras de `lastReadAt`.
+   *
+   * `currentChapterUrl` não entra nos dados do progresso — é gravada no
+   * vínculo —, mas continua contando como informação de capítulo.
    */
   private buildUpdateData(dto: ProgressFields): Record<string, unknown> {
     const data: Record<string, unknown> = {};
@@ -135,12 +236,6 @@ export class ReadingProgressService {
         typeof dto.currentChapterNumber === 'string'
           ? dto.currentChapterNumber.trim()
           : dto.currentChapterNumber;
-    }
-    if (dto.currentChapterUrl !== undefined) {
-      data.currentChapterUrl =
-        typeof dto.currentChapterUrl === 'string'
-          ? dto.currentChapterUrl.trim()
-          : dto.currentChapterUrl;
     }
     if (dto.comicSiteId !== undefined) {
       data.comicSiteId = dto.comicSiteId;
@@ -186,11 +281,19 @@ export class ReadingProgressService {
       await this.assertComicSiteBelongsToComic(dto.comicSiteId, dto.comicId);
     }
 
+    const urlTarget = this.resolveChapterUrlTarget(
+      this.normalizeChapterUrl(dto),
+      dto.comicSiteId,
+      null,
+    );
+
     try {
-      return await this.prisma.readingProgress.create({
-        data: this.buildCreateData(dto.comicId, dto),
-        include: PROGRESS_INCLUDE,
-      });
+      return await this.persistProgress(urlTarget, (client) =>
+        client.readingProgress.create({
+          data: this.buildCreateData(dto.comicId, dto),
+          include: PROGRESS_INCLUDE,
+        }),
+      );
     } catch (error: unknown) {
       if (isUniqueConstraintError(error)) {
         throw new ConflictException(
@@ -241,7 +344,7 @@ export class ReadingProgressService {
   }
 
   async update(comicId: string, dto: UpdateReadingProgressDto) {
-    await this.findOneByComicId(comicId);
+    const existing = await this.findOneByComicId(comicId);
 
     this.validateChapterFields(dto);
     validateReadingStatus(dto.status);
@@ -250,12 +353,20 @@ export class ReadingProgressService {
       await this.assertComicSiteBelongsToComic(dto.comicSiteId, comicId);
     }
 
+    const urlTarget = this.resolveChapterUrlTarget(
+      this.normalizeChapterUrl(dto),
+      dto.comicSiteId,
+      existing.comicSiteId,
+    );
+
     try {
-      return await this.prisma.readingProgress.update({
-        where: { comicId },
-        data: this.buildUpdateData(dto),
-        include: PROGRESS_INCLUDE,
-      });
+      return await this.persistProgress(urlTarget, (client) =>
+        client.readingProgress.update({
+          where: { comicId },
+          data: this.buildUpdateData(dto),
+          include: PROGRESS_INCLUDE,
+        }),
+      );
     } catch (error: unknown) {
       if (isUniqueConstraintError(error)) {
         throw new ConflictException(
@@ -293,13 +404,23 @@ export class ReadingProgressService {
       await this.assertComicSiteBelongsToComic(dto.comicSiteId, comicId);
     }
 
+    const urlTarget = this.resolveChapterUrlTarget(
+      this.normalizeChapterUrl(dto),
+      dto.comicSiteId,
+      dto.comicSiteId === undefined && dto.currentChapterUrl !== undefined
+        ? await this.resolveCurrentComicSiteId(comicId)
+        : null,
+    );
+
     try {
-      return await this.prisma.readingProgress.upsert({
-        where: { comicId },
-        create: this.buildCreateData(comicId, dto),
-        update: this.buildUpdateData(dto),
-        include: PROGRESS_INCLUDE,
-      });
+      return await this.persistProgress(urlTarget, (client) =>
+        client.readingProgress.upsert({
+          where: { comicId },
+          create: this.buildCreateData(comicId, dto),
+          update: this.buildUpdateData(dto),
+          include: PROGRESS_INCLUDE,
+        }),
+      );
     } catch (error: unknown) {
       if (isUniqueConstraintError(error)) {
         throw new ConflictException(

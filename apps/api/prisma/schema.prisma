@@ -66,6 +66,8 @@ model ComicSite {
   comicId       String
   siteId        String
   url           String
+  /** URL do último capítulo lido neste vínculo (site específico). */
+  currentChapterUrl String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -81,7 +83,6 @@ model ReadingProgress {
   id                   String        @id @default(uuid())
   comicId              String        @unique
   currentChapterNumber Decimal?      @db.Decimal(10, 3)
-  currentChapterUrl    String?
   comicSiteId          String?       @unique
   lastReadAt           DateTime?
   status               ReadingStatus @default(PLAN_TO_READ)

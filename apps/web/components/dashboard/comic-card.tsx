@@ -84,8 +84,7 @@ export function ComicCard({ comic }: { comic: Comic }) {
   const meta = statusMeta(progress?.status ?? "NONE");
 
   const linkedSite = progress?.comicSite ?? comic.sites[0] ?? null;
-  const href =
-    progress?.currentChapterUrl ?? linkedSite?.url ?? null;
+  const href = linkedSite?.currentChapterUrl ?? linkedSite?.url ?? null;
   const siteName = linkedSite?.site.name ?? null;
 
   const chapter = progress?.currentChapterNumber ?? null;

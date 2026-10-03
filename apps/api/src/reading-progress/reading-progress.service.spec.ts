@@ -23,7 +23,9 @@ describe('ReadingProgressService', () => {
     };
     comicSite: {
       findUnique: jest.Mock;
+      update: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   const EXPECTED_INCLUDE = {
@@ -56,6 +58,7 @@ describe('ReadingProgressService', () => {
     comicId: 'comic-1',
     siteId: 'site-1',
     url: 'https://mangaplus.shueisha.co.jp/solo-leveling',
+    currentChapterUrl: null as string | null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -64,7 +67,6 @@ describe('ReadingProgressService', () => {
     id: 'rp-1',
     comicId: 'comic-1',
     currentChapterNumber: '1.5',
-    currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
     comicSiteId: 'cs-1',
     lastReadAt: new Date('2026-01-10T10:00:00.000Z'),
     status: 'READING',
@@ -89,7 +91,13 @@ describe('ReadingProgressService', () => {
       },
       comicSite: {
         findUnique: jest.fn(),
+        update: jest.fn(),
       },
+      // Mesma transação para o cliente mock: as operações internas gravam nos
+      // mocks do próprio prisma, permitindo asserções sobre elas.
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn(prisma),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -112,7 +120,7 @@ describe('ReadingProgressService', () => {
       prisma.comicSite.findUnique.mockResolvedValue(existingComicSite);
     });
 
-    it('should create a ReadingProgress with chapter info and site', async () => {
+    it('should create a ReadingProgress with chapter info and save the url on the site', async () => {
       prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
 
       const dto = {
@@ -125,11 +133,17 @@ describe('ReadingProgressService', () => {
 
       const result = await service.create(dto);
 
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: {
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+        },
+      });
       expect(prisma.readingProgress.create).toHaveBeenCalledWith({
         data: {
           comicId: 'comic-1',
           currentChapterNumber: '1.5',
-          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
           comicSiteId: 'cs-1',
           status: 'READING',
           lastReadAt: expect.any(Date),
@@ -145,11 +159,11 @@ describe('ReadingProgressService', () => {
 
       const result = await service.create({ comicId: 'comic-1' });
 
+      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.readingProgress.create).toHaveBeenCalledWith({
         data: {
           comicId: 'comic-1',
           currentChapterNumber: undefined,
-          currentChapterUrl: undefined,
           comicSiteId: undefined,
           status: undefined,
           lastReadAt: null,
@@ -159,23 +173,40 @@ describe('ReadingProgressService', () => {
       expect(result).toEqual(created);
     });
 
-    it('should trim currentChapterNumber and currentChapterUrl', async () => {
+    it('should trim currentChapterNumber and save the trimmed url on the site', async () => {
       prisma.readingProgress.create.mockResolvedValue(existingReadingProgress);
 
       await service.create({
         comicId: 'comic-1',
         currentChapterNumber: ' 10.5 ',
         currentChapterUrl: ' https://example.com/chapter-10.5 ',
+        comicSiteId: 'cs-1',
       });
 
       expect(prisma.readingProgress.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             currentChapterNumber: '10.5',
-            currentChapterUrl: 'https://example.com/chapter-10.5',
           }),
         }),
       );
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: { currentChapterUrl: 'https://example.com/chapter-10.5' },
+      });
+    });
+
+    it('should throw BadRequestException when currentChapterUrl is informed without a site', async () => {
+      try {
+        await service.create({
+          comicId: 'comic-1',
+          currentChapterUrl: 'https://example.com/chapter-10.5',
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+      expect(prisma.readingProgress.create).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when dto is undefined', async () => {
@@ -433,11 +464,10 @@ describe('ReadingProgressService', () => {
       expect(result).toEqual(updated);
     });
 
-    it('should update chapter info and refresh lastReadAt', async () => {
+    it('should update chapter info and save the url on the site', async () => {
       const updated = {
         ...existingReadingProgress,
         currentChapterNumber: '2',
-        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
       };
       prisma.readingProgress.update.mockResolvedValue(updated);
 
@@ -447,11 +477,17 @@ describe('ReadingProgressService', () => {
         comicSiteId: 'cs-1',
       });
 
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: {
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+        },
+      });
       expect(prisma.readingProgress.update).toHaveBeenCalledWith({
         where: { comicId: 'comic-1' },
         data: {
           currentChapterNumber: '2',
-          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
           comicSiteId: 'cs-1',
           lastReadAt: expect.any(Date),
         },
@@ -460,11 +496,83 @@ describe('ReadingProgressService', () => {
       expect(result).toEqual(updated);
     });
 
+    it('should save the url on the current site when comicSiteId is not sent', async () => {
+      prisma.readingProgress.update.mockResolvedValue(existingReadingProgress);
+
+      await service.update('comic-1', {
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+      });
+
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: {
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+        },
+      });
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { lastReadAt: expect.any(Date) },
+        }),
+      );
+    });
+
+    it('should clear the url on the current site when it is set to null', async () => {
+      prisma.readingProgress.update.mockResolvedValue(existingReadingProgress);
+
+      await service.update('comic-1', { currentChapterUrl: null });
+
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: { currentChapterUrl: null },
+      });
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {},
+        }),
+      );
+    });
+
+    it('should ignore clearing the url when there is no target site', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue({
+        ...existingReadingProgress,
+        comicSiteId: null,
+        comicSite: null,
+      });
+      prisma.readingProgress.update.mockResolvedValue(existingReadingProgress);
+
+      await service.update('comic-1', { currentChapterUrl: null });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.comicSite.update).not.toHaveBeenCalled();
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {},
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when the url is informed without any site', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue({
+        ...existingReadingProgress,
+        comicSiteId: null,
+        comicSite: null,
+      });
+
+      try {
+        await service.update('comic-1', {
+          currentChapterUrl: 'https://example.com/chapter-2',
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+      expect(prisma.readingProgress.update).not.toHaveBeenCalled();
+    });
+
     it('should clear lastReadAt when both chapter fields are set to null', async () => {
       const updated = {
         ...existingReadingProgress,
         currentChapterNumber: null,
-        currentChapterUrl: null,
         comicSiteId: null,
       };
       prisma.readingProgress.update.mockResolvedValue(updated);
@@ -479,7 +587,6 @@ describe('ReadingProgressService', () => {
         where: { comicId: 'comic-1' },
         data: {
           currentChapterNumber: null,
-          currentChapterUrl: null,
           comicSiteId: null,
           lastReadAt: null,
         },
@@ -610,7 +717,7 @@ describe('ReadingProgressService', () => {
       prisma.comicSite.findUnique.mockResolvedValue(existingComicSite);
     });
 
-    it('should upsert atomically with create and update payloads', async () => {
+    it('should upsert atomically saving the url on the site', async () => {
       prisma.readingProgress.upsert.mockResolvedValue(existingReadingProgress);
 
       const result = await service.upsert('comic-1', {
@@ -620,19 +727,24 @@ describe('ReadingProgressService', () => {
         status: 'READING',
       });
 
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: {
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
+        },
+      });
       expect(prisma.readingProgress.upsert).toHaveBeenCalledWith({
         where: { comicId: 'comic-1' },
         create: {
           comicId: 'comic-1',
           currentChapterNumber: '1.5',
-          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
           comicSiteId: 'cs-1',
           status: 'READING',
           lastReadAt: expect.any(Date),
         },
         update: {
           currentChapterNumber: '1.5',
-          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/1.5',
           comicSiteId: 'cs-1',
           status: 'READING',
           lastReadAt: expect.any(Date),
@@ -640,6 +752,45 @@ describe('ReadingProgressService', () => {
         include: EXPECTED_INCLUDE,
       });
       expect(result).toEqual(existingReadingProgress);
+    });
+
+    it('should save the url on the current site when the payload omits comicSiteId', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue(existingReadingProgress);
+      prisma.readingProgress.upsert.mockResolvedValue(existingReadingProgress);
+
+      await service.upsert('comic-1', {
+        currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+      });
+
+      expect(prisma.readingProgress.findUnique).toHaveBeenCalledWith({
+        where: { comicId: 'comic-1' },
+        select: { comicSiteId: true },
+      });
+      expect(prisma.comicSite.update).toHaveBeenCalledWith({
+        where: { id: 'cs-1' },
+        data: {
+          currentChapterUrl: 'https://mangaplus.shueisha.co.jp/solo-leveling/2',
+        },
+      });
+      expect(prisma.readingProgress.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { lastReadAt: expect.any(Date) },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when the url is informed without any site', async () => {
+      prisma.readingProgress.findUnique.mockResolvedValue(null);
+
+      try {
+        await service.upsert('comic-1', {
+          currentChapterUrl: 'https://example.com/chapter-2',
+        });
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+      expect(prisma.readingProgress.upsert).not.toHaveBeenCalled();
     });
 
     it('should build create without chapter info and update with only provided fields', async () => {

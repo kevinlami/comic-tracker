@@ -1,7 +1,7 @@
 import type { Comic, Site } from "@/types/comic";
 import { AddLinkSection } from "./add-link-section";
 import { RemoveLinkButton } from "./remove-link-button";
-import { BookIcon, HubIcon, OpenInNewIcon } from "@/components/icons";
+import { BookIcon, HubIcon, LinkIcon, OpenInNewIcon } from "@/components/icons";
 import Link from "next/link";
 
 interface LinkedSourcesProps {
@@ -68,6 +68,20 @@ export function LinkedSources({ comic, sites }: LinkedSourcesProps) {
                   <p className="text-body-sm text-outline truncate max-w-md sm:max-w-xl">
                     {link.url}
                   </p>
+                  {link.currentChapterUrl ? (
+                    <a
+                      href={link.currentChapterUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={link.currentChapterUrl}
+                      className="mt-1 flex items-center gap-1.5 max-w-md sm:max-w-xl text-caption text-on-surface-variant hover:text-primary transition-colors rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                    >
+                      <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="min-w-0 truncate">
+                        {link.currentChapterUrl}
+                      </span>
+                    </a>
+                  ) : null}
                 </div>
               </div>
 

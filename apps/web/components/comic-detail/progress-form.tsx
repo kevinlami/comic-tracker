@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type ChangeEvent } from "react";
 import type { Comic, ReadingStatus } from "@/types/comic";
 import {
   saveProgressAction,
@@ -28,22 +28,46 @@ const SELECT_CLASS =
   "appearance-none w-full bg-surface-container rounded px-3 py-2 pr-9 text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors";
 
 /**
+ * Último capítulo lido no vínculo informado — a URL do capítulo pertence ao
+ * site, não ao progresso.
+ */
+function savedChapterUrl(comic: Comic, siteId: string): string {
+  if (!siteId) {
+    return "";
+  }
+  const link = comic.sites.find((item) => item.id === siteId);
+  return link?.currentChapterUrl ?? "";
+}
+
+/**
  * Registro atômico da última leitura (`PUT /reading-progress/:comicId`).
  * Os valores iniciais vão em hidden inputs: campos que não mudaram são
  * omitidos na action, preservando `lastReadAt`.
+ *
+ * Ao trocar o site provedor, o campo de URL assume a última URL lida naquele
+ * vínculo — é ela que será salva e a que o acervo vai abrir.
  */
 export function ProgressForm({ comic }: { comic: Comic }) {
   const progress = comic.readingProgress;
   const initialChapter = progress?.currentChapterNumber ?? "";
-  const initialUrl = progress?.currentChapterUrl ?? "";
   const initialSiteId = progress?.comicSiteId ?? "";
   const initialStatus = progress?.status ?? "READING";
 
   const [chapter, setChapter] = useState(initialChapter);
+  const [siteId, setSiteId] = useState(initialSiteId);
+  const [url, setUrl] = useState(() => savedChapterUrl(comic, initialSiteId));
   const [state, formAction, pending] = useActionState<
     FormActionState | null,
     FormData
   >(saveProgressAction, null);
+
+  const initialUrl = savedChapterUrl(comic, siteId);
+
+  function handleSiteChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextSiteId = event.target.value;
+    setSiteId(nextSiteId);
+    setUrl(savedChapterUrl(comic, nextSiteId));
+  }
 
   function adjustChapter(delta: number) {
     setChapter((current) => {
@@ -164,7 +188,8 @@ export function ProgressForm({ comic }: { comic: Comic }) {
               <select
                 id="provider-site"
                 name="comicSiteId"
-                defaultValue={initialSiteId}
+                value={siteId}
+                onChange={handleSiteChange}
                 className={SELECT_CLASS}
               >
                 <option value="">Nenhum</option>
@@ -184,7 +209,7 @@ export function ProgressForm({ comic }: { comic: Comic }) {
             htmlFor="chapter-url"
             className="block text-label-sm text-on-surface-variant"
           >
-            URL do Capítulo Consultado
+            URL do Capítulo Lido Neste Site
           </label>
           <div className="relative flex items-center">
             <LinkIcon className="absolute left-3 w-[18px] h-[18px] text-outline" />
@@ -192,11 +217,19 @@ export function ProgressForm({ comic }: { comic: Comic }) {
               id="chapter-url"
               name="currentChapterUrl"
               type="url"
-              defaultValue={initialUrl}
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              disabled={!siteId}
+              aria-describedby="chapter-url-hint"
               placeholder="https://..."
-              className="w-full bg-surface-container rounded pl-9 pr-3 py-2 text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              className="w-full bg-surface-container rounded pl-9 pr-3 py-2 text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors disabled:cursor-not-allowed disabled:text-outline"
             />
           </div>
+          <p id="chapter-url-hint" className="text-caption text-outline">
+            {siteId
+              ? "É a URL que o acervo abre em \"Continuar lendo\"."
+              : "Selecione um site provedor para informar a URL."}
+          </p>
         </div>
 
         <div className="pt-2 flex items-center justify-end">

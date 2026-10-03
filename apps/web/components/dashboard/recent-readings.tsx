@@ -62,7 +62,7 @@ function RecentCard({ comic, lastReadAt }: RecentReading) {
   const progress = comic.readingProgress;
   const status = progress?.status ?? "PLAN_TO_READ";
   const linkedSite = progress?.comicSite ?? comic.sites[0] ?? null;
-  const href = progress?.currentChapterUrl ?? linkedSite?.url ?? null;
+  const href = linkedSite?.currentChapterUrl ?? linkedSite?.url ?? null;
   const chapter = progress?.currentChapterNumber;
   const relative = formatRelativeTime(lastReadAt);
 

@@ -35,6 +35,8 @@ export interface ComicSiteLink {
   comicId: string;
   siteId: string;
   url: string;
+  /** Último capítulo lido neste vínculo — cada site guarda a sua URL. */
+  currentChapterUrl: string | null;
   site: Site;
 }
 
@@ -56,7 +58,6 @@ export interface ReadingProgress {
   id: string;
   comicId: string;
   currentChapterNumber: string | null;
-  currentChapterUrl: string | null;
   comicSiteId: string | null;
   lastReadAt: string | null;
   status: ReadingStatus;

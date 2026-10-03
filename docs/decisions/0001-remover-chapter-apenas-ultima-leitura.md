@@ -34,6 +34,10 @@ com validação apenas na aplicação: podia apontar para capítulo inexistente
    - `comicSiteId` (`String?`, FK → `ComicSite`, `ON DELETE SET NULL`, única) —
      de qual site veio a última leitura;
    - `lastReadAt` (`DateTime?`) — quando ocorreu a última leitura.
+
+   > **Atualização (2026-10-03):** `currentChapterUrl` passou para `ComicSite`
+   > em [0002](0002-url-do-capitulo-por-vinculo.md) — a URL de capítulo é
+   > específica do site e agora acompanha a troca do vínculo.
 3. **Substituir `currentChapterId` por esses campos**, eliminando o apontador
    sem integridade referencial.
 4. **Adicionar `PUT /reading-progress/:comicId`** (upsert idempotente): uma
@@ -61,7 +65,8 @@ com validação apenas na aplicação: podia apontar para capítulo inexistente
 - **Neutras/negativas:** não há histórico de capítulos lidos (requisito
   excluído — se voltar, será uma tabela nova, aditiva); a URL por site só é
   mantida para o último capítulo lido; múltiplos sites por quadrinho guardam
-  apenas o site da última leitura.
+  apenas o site da última leitura. *(Em [0002](0002-url-do-capitulo-por-vinculo.md)
+  a URL deixou o progresso e passou a ser guardada por vínculo.)*
 - `ComicSite.isAvailable` e `ComicSite.lastCheckedAt`, legado da era de
   verificação de disponibilidade, foram **removidos** em 2026-09-30 (migration
   `remove_comic_site_availability_legacy`): a API aceitava os campos, mas nada

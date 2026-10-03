@@ -10,6 +10,28 @@ const VALID_COMIC_TYPES = new Set(Object.values(ComicType));
 const VALID_COMIC_STATUSES = new Set(Object.values(ComicStatus));
 
 /**
+ * Avaliação pessoal do quadrinho: inteiro de 1 a 5, ou `null` quando o
+ * usuário ainda não avaliou (campo opcional). Aceita `undefined` (campo
+ * ausente no payload, que não altera o valor gravado).
+ */
+function validateRating(rating: unknown): void {
+  if (rating === undefined || rating === null) {
+    return;
+  }
+
+  if (
+    typeof rating !== 'number' ||
+    !Number.isInteger(rating) ||
+    rating < 1 ||
+    rating > 5
+  ) {
+    throw new BadRequestException(
+      'rating must be an integer between 1 and 5 or null',
+    );
+  }
+}
+
+/**
  * Includes usados na leitura de um quadrinho (lista e detalhe):
  * progresso com o site usado na leitura e sites vinculados.
  */
@@ -61,6 +83,8 @@ export class ComicsService {
       throw new BadRequestException('coverUrl must be a string or null');
     }
 
+    validateRating(dto.rating);
+
     return this.prisma.comic.create({
       data: {
         title: dto.title.trim(),
@@ -68,6 +92,7 @@ export class ComicsService {
         type: dto.type,
         status: dto.status,
         coverUrl: dto.coverUrl,
+        rating: dto.rating,
       },
     });
   }
@@ -167,6 +192,8 @@ export class ComicsService {
       throw new BadRequestException('coverUrl must be a string or null');
     }
 
+    validateRating(dto.rating);
+
     const data: Record<string, unknown> = {};
 
     if (dto.title !== undefined) {
@@ -183,6 +210,9 @@ export class ComicsService {
     }
     if (dto.coverUrl !== undefined) {
       data.coverUrl = dto.coverUrl;
+    }
+    if (dto.rating !== undefined) {
+      data.rating = dto.rating;
     }
 
     return this.prisma.comic.update({

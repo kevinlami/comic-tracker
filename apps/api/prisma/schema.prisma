@@ -39,6 +39,8 @@ model Comic {
   type              ComicType         @default(MANGA)
   status            ComicStatus       @default(UNKNOWN)
   coverUrl          String?
+  /** Avaliação pessoal de 1 a 5; `null` quando ainda não avaliado. */
+  rating            Int?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { deleteComic } from "@/services/comics.service";
+import { deleteComic, updateComicRating } from "@/services/comics.service";
 import {
   upsertReadingProgress,
   type UpsertReadingProgressPayload,
@@ -16,14 +16,17 @@ import {
   requiredString,
   type FormActionState,
 } from "@/lib/form-action";
+import { parseRating } from "@/lib/rating";
 
 export type { FormActionState };
 
 /**
- * Registra a última leitura (`PUT` atômico).
+ * Registra a última leitura (`PUT` atômico) junto com a avaliação pessoal
+ * (`PATCH /comics/:id`).
  *
  * Campos cujo valor não mudou são omitidos — assim, salvar apenas o status
  * não altera `lastReadAt` (que representa a última leitura de capítulo).
+ * A avaliação só é enviada quando difere da nota já gravada.
  */
 export async function saveProgressAction(
   _prevState: FormActionState | null,
@@ -42,6 +45,16 @@ export async function saveProgressAction(
   const initialChapter = requiredString(formData, "initialChapterNumber");
   const initialUrl = requiredString(formData, "initialChapterUrl");
   const initialComicSiteId = requiredString(formData, "initialComicSiteId");
+
+  // Validado antes de qualquer chamada: um payload inválido não pode deixar
+  // o progresso salvo sem a avaliação.
+  const rating = parseRating(requiredString(formData, "rating"));
+  if (!rating.ok) {
+    return { ok: false, message: rating.message };
+  }
+  const ratingChanged =
+    requiredString(formData, "rating") !==
+    requiredString(formData, "initialRating");
 
   const payload: UpsertReadingProgressPayload = {};
   if (status) {
@@ -63,8 +76,20 @@ export async function saveProgressAction(
     return { ok: false, message: errorMessage(error) };
   }
 
+  if (ratingChanged) {
+    try {
+      await updateComicRating(comicId, rating.rating);
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Progresso salvo, mas a avaliação não pôde ser gravada: ${errorMessage(error)}`,
+      };
+    }
+  }
+
   revalidatePath("/comics/[id]", "page");
   revalidatePath("/");
+  revalidatePath("/sites/[id]", "page");
   return {
     ok: true,
     message: chapter

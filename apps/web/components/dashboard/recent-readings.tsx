@@ -6,6 +6,7 @@ import {
   READING_STATUS_LABEL,
   READING_STATUS_TEXT,
 } from "./status-display";
+import { RatingStars } from "@/components/rating/rating-stars";
 
 export interface RecentReading {
   comic: Comic;
@@ -82,6 +83,11 @@ function RecentCard({ comic, lastReadAt }: RecentReading) {
             Cap. {chapter}
           </span>
         ) : null}
+        <RatingStars
+          rating={comic.rating}
+          variant="badge"
+          className="absolute top-2 right-2"
+        />
       </div>
 
       <div className="mt-2 flex flex-col gap-0.5 min-w-0">

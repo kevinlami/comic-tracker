@@ -11,6 +11,7 @@ import {
   requiredString,
   type FormActionState,
 } from "@/lib/form-action";
+import { parseRating } from "@/lib/rating";
 import {
   createComic,
   updateComic,
@@ -58,6 +59,11 @@ function parseComicForm(formData: FormData): ComicFormParse {
 
   const coverUrl = requiredString(formData, "coverUrl");
 
+  const rating = parseRating(requiredString(formData, "rating"));
+  if (!rating.ok) {
+    return { ok: false, message: rating.message };
+  }
+
   return {
     ok: true,
     payload: {
@@ -66,6 +72,7 @@ function parseComicForm(formData: FormData): ComicFormParse {
       status,
       alternativeTitles,
       coverUrl: coverUrl.length > 0 ? coverUrl : null,
+      rating: rating.rating,
     },
   };
 }
@@ -115,5 +122,6 @@ export async function updateComicAction(
 
   revalidatePath("/");
   revalidatePath("/comics/[id]", "page");
+  revalidatePath("/sites/[id]", "page");
   redirect(`/comics/${comicId}`);
 }

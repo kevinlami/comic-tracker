@@ -246,6 +246,54 @@ describe('ComicsService', () => {
         }),
       );
     });
+
+    it('should create a comic with a valid rating', async () => {
+      prisma.comic.create.mockResolvedValue({ id: '1', rating: 4 });
+
+      await service.create({ title: 'Test', rating: 4 });
+
+      expect(prisma.comic.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rating: 4 }),
+        }),
+      );
+    });
+
+    it('should accept rating as null', async () => {
+      prisma.comic.create.mockResolvedValue({ id: '1', rating: null });
+
+      await service.create({ title: 'Test', rating: null });
+
+      expect(prisma.comic.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ rating: null }),
+        }),
+      );
+    });
+
+    it('should throw BadRequestException for rating below 1', async () => {
+      await expect(
+        service.create({ title: 'Test', rating: 0 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for rating above 5', async () => {
+      await expect(
+        service.create({ title: 'Test', rating: 6 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for non-integer rating', async () => {
+      await expect(
+        service.create({ title: 'Test', rating: 2.5 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for non-numeric rating', async () => {
+      await expect(
+        service.create({ title: 'Test', rating: '4' as unknown as number }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findAll', () => {
@@ -617,6 +665,53 @@ describe('ComicsService', () => {
         data: { alternativeTitles: [] },
       });
       expect(result).toEqual(updated);
+    });
+
+    it('should update only rating', async () => {
+      const updated = { ...existingComic, rating: 3 };
+      prisma.comic.update.mockResolvedValue(updated);
+
+      const result = await service.update('uuid-1', { rating: 3 });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { rating: 3 },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('should clear rating with null', async () => {
+      prisma.comic.update.mockResolvedValue({ ...existingComic, rating: null });
+
+      await service.update('uuid-1', { rating: null });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { rating: null },
+      });
+    });
+
+    it('should not send rating when omitted', async () => {
+      prisma.comic.update.mockResolvedValue(existingComic);
+
+      await service.update('uuid-1', { title: 'One Piece' });
+
+      expect(prisma.comic.update).toHaveBeenCalledWith({
+        where: { id: 'uuid-1' },
+        data: { title: 'One Piece' },
+      });
+    });
+
+    it('should throw BadRequestException for rating outside 1-5', async () => {
+      await expect(
+        service.update('uuid-1', { rating: 6 }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update('uuid-1', { rating: 0 }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update('uuid-1', { rating: 2.5 }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

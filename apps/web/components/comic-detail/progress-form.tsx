@@ -7,6 +7,7 @@ import {
   type FormActionState,
 } from "@/app/comics/[id]/actions";
 import { READING_STATUS_LABEL } from "@/components/dashboard/status-display";
+import { RatingField } from "@/components/rating/rating-field";
 import {
   CheckCircleIcon,
   ChevronDownIcon,
@@ -110,6 +111,11 @@ export function ProgressForm({ comic }: { comic: Comic }) {
         />
         <input type="hidden" name="initialChapterUrl" value={initialUrl} />
         <input type="hidden" name="initialComicSiteId" value={initialSiteId} />
+        <input
+          type="hidden"
+          name="initialRating"
+          value={comic.rating ?? ""}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -203,6 +209,13 @@ export function ProgressForm({ comic }: { comic: Comic }) {
             </div>
           </div>
         </div>
+
+        <RatingField
+          name="rating"
+          initialRating={comic.rating}
+          label="Avaliação / Nota (1 a 5 estrelas)"
+          hint="Sua classificação pessoal deste quadrinho no acervo."
+        />
 
         <div className="space-y-1.5">
           <label

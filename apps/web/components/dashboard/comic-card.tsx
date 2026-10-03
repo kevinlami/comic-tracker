@@ -10,6 +10,7 @@ import {
   READING_STATUS_TEXT,
 } from "./status-display";
 import { AddIcon, PlayIcon, ReplayIcon, RestoreIcon } from "@/components/icons";
+import { RatingStars } from "@/components/rating/rating-stars";
 
 const CTA_PRIMARY =
   "bg-on-surface text-surface hover:opacity-90 transition-opacity";
@@ -153,6 +154,8 @@ export function ComicCard({ comic }: { comic: Comic }) {
               Sem capítulo registrado
             </p>
           ) : null}
+
+          <RatingStars rating={comic.rating} />
         </div>
 
         <div className="flex items-center justify-between gap-2 mt-2 pt-1">

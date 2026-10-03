@@ -8,6 +8,7 @@ import {
   READING_STATUS_PILL,
 } from "@/components/dashboard/status-display";
 import { BookIcon, OpenInNewIcon } from "@/components/icons";
+import { RatingStars } from "@/components/rating/rating-stars";
 
 interface SiteComicsGridProps {
   links: SiteComicLink[];
@@ -97,6 +98,12 @@ function SiteComicCard({ link }: { link: SiteComicLink }) {
             {READING_STATUS_LABEL[status]}
           </span>
         ) : null}
+
+        <RatingStars
+          rating={comic.rating}
+          variant="badge"
+          className="absolute bottom-9 right-2"
+        />
 
         <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
           {chapter ? (

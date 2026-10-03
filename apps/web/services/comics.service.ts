@@ -43,6 +43,8 @@ export interface ComicWritePayload {
   alternativeTitles: string[];
   /** `null` limpa a capa; string vazia também vira `null`. */
   coverUrl: string | null;
+  /** Avaliação pessoal de 1 a 5; `null` = sem avaliação. */
+  rating: number | null;
 }
 
 /** Cria um quadrinho via `POST /comics`. */
@@ -58,5 +60,19 @@ export function updateComic(
   return apiFetch<Comic>(`/comics/${encodeURIComponent(id)}`, {
     method: "PATCH",
     json: payload,
+  });
+}
+
+/**
+ * Grava apenas a avaliação pessoal via `PATCH /comics/:id`.
+ * Usado pelo registro de progresso, que salva nota e capítulo juntos.
+ */
+export function updateComicRating(
+  id: string,
+  rating: number | null,
+): Promise<Comic> {
+  return apiFetch<Comic>(`/comics/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    json: { rating },
   });
 }

@@ -19,6 +19,7 @@ import {
   SaveIcon,
 } from "@/components/icons";
 import type { FormActionState } from "@/lib/form-action";
+import { RatingField } from "@/components/rating/rating-field";
 import type { Comic, ComicStatus, ComicType } from "@/types/comic";
 
 /** Assinatura das server actions de criação/edição de quadrinho. */
@@ -256,6 +257,13 @@ export function ComicForm({ action, initial }: ComicFormProps) {
             </div>
           </div>
         </div>
+
+        <RatingField
+          name="rating"
+          initialRating={initial?.rating ?? null}
+          label="Avaliação / Nota (1 a 5 estrelas)"
+          hint="Sua classificação pessoal deste quadrinho no acervo."
+        />
 
         <div className="pt-5 border-t border-outline-variant flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-3">
           <Link

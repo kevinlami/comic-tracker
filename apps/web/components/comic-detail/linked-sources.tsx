@@ -2,6 +2,7 @@ import type { Comic, Site } from "@/types/comic";
 import { AddLinkSection } from "./add-link-section";
 import { RemoveLinkButton } from "./remove-link-button";
 import { BookIcon, HubIcon, OpenInNewIcon } from "@/components/icons";
+import Link from "next/link";
 
 interface LinkedSourcesProps {
   comic: Comic;
@@ -52,9 +53,12 @@ export function LinkedSources({ comic, sites }: LinkedSourcesProps) {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-body-lg text-on-surface font-semibold">
+                    <Link
+                      href={`/sites/${link.site.id}`}
+                      className="text-body-lg text-on-surface font-semibold hover:text-primary transition-colors rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                    >
                       {link.site.name}
-                    </span>
+                    </Link>
                     {usedLinkId === link.id ? (
                       <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-caption font-bold uppercase tracking-wider">
                         Em uso

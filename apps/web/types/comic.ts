@@ -25,6 +25,8 @@ export interface Site {
   name: string;
   baseUrl: string;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Vínculo de um quadrinho com um site de leitura (ComicSite). */
@@ -34,6 +36,19 @@ export interface ComicSiteLink {
   siteId: string;
   url: string;
   site: Site;
+}
+
+/** Progresso de leitura em `GET /comic-sites?siteId=` (sem `comicSite` aninhado). */
+export type SiteReadingProgress = Omit<ReadingProgress, "comicSite">;
+
+/** Comic aninhado no detalhe do site: `Comic` sem a lista de sites vinculados. */
+export type SiteComic = Omit<Comic, "sites" | "readingProgress"> & {
+  readingProgress: SiteReadingProgress | null;
+};
+
+/** Vínculo site↔quadrinho com o quadrinho aninhado (detalhe do site). */
+export interface SiteComicLink extends ComicSiteLink {
+  comic: SiteComic;
 }
 
 /** Progresso de leitura — apenas o último capítulo lido (sem histórico). */

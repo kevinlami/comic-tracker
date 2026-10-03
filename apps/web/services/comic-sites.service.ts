@@ -1,4 +1,4 @@
-import type { ComicSiteLink } from "@/types/comic";
+import type { ComicSiteLink, SiteComicLink } from "@/types/comic";
 import { apiFetch } from "./api-client";
 
 export interface CreateComicSitePayload {
@@ -15,6 +15,12 @@ export function createComicSite(
     method: "POST",
     json: payload,
   });
+}
+
+/** Vínculos de um site (com os quadrinhos aninhados) via `GET /comic-sites?siteId=`. */
+export function fetchComicSitesBySite(siteId: string): Promise<SiteComicLink[]> {
+  const query = new URLSearchParams({ siteId });
+  return apiFetch<SiteComicLink[]>(`/comic-sites?${query.toString()}`);
 }
 
 /** Remove um vínculo site↔quadrinho via `DELETE /comic-sites/:id`. */

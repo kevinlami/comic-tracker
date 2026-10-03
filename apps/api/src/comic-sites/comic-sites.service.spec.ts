@@ -249,13 +249,14 @@ describe('ComicSitesService', () => {
       expect(result).toEqual([existingComicSite]);
     });
 
-    it('should include comic and site', async () => {
+    it('should include comic (with reading progress) and site', async () => {
       prisma.comicSite.findMany.mockResolvedValue([existingComicSite]);
 
       await service.findAll();
 
       expect(prisma.comicSite.findMany).toHaveBeenCalledWith({
-        include: { comic: true, site: true },
+        where: undefined,
+        include: { comic: { include: { readingProgress: true } }, site: true },
       });
     });
 
@@ -265,6 +266,65 @@ describe('ComicSitesService', () => {
       const result = await service.findAll();
 
       expect(result).toEqual([]);
+    });
+
+    it('should filter by siteId when informed', async () => {
+      prisma.site.findUnique.mockResolvedValue(existingSite);
+      prisma.comicSite.findMany.mockResolvedValue([existingComicSite]);
+
+      const result = await service.findAll('site-1');
+
+      expect(prisma.site.findUnique).toHaveBeenCalledWith({
+        where: { id: 'site-1' },
+      });
+      expect(prisma.comicSite.findMany).toHaveBeenCalledWith({
+        where: { siteId: 'site-1' },
+        include: { comic: { include: { readingProgress: true } }, site: true },
+      });
+      expect(result).toEqual([existingComicSite]);
+    });
+
+    it('should trim siteId before filtering', async () => {
+      prisma.site.findUnique.mockResolvedValue(existingSite);
+      prisma.comicSite.findMany.mockResolvedValue([]);
+
+      await service.findAll('  site-1  ');
+
+      expect(prisma.site.findUnique).toHaveBeenCalledWith({
+        where: { id: 'site-1' },
+      });
+      expect(prisma.comicSite.findMany).toHaveBeenCalledWith({
+        where: { siteId: 'site-1' },
+        include: { comic: { include: { readingProgress: true } }, site: true },
+      });
+    });
+
+    it('should throw BadRequestException when siteId is empty', async () => {
+      try {
+        await service.findAll('   ');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+      }
+
+      expect(prisma.site.findUnique).not.toHaveBeenCalled();
+      expect(prisma.comicSite.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when the site does not exist', async () => {
+      prisma.site.findUnique.mockResolvedValue(null);
+
+      try {
+        await service.findAll('nonexistent');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        expect((error as Error).message).toBe(
+          'Site with id "nonexistent" not found',
+        );
+      }
+
+      expect(prisma.comicSite.findMany).not.toHaveBeenCalled();
     });
   });
 

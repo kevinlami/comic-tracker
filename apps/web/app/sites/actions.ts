@@ -58,9 +58,10 @@ function parseSiteForm(formData: FormData): SiteFormParse {
   };
 }
 
-/** Revalida as telas que exibem os dados do site (lista e detalhe). */
+/** Revalida as telas que exibem os dados do site (lista, detalhe e vínculos). */
 function revalidateSitePages() {
   revalidatePath("/sites");
+  revalidatePath("/sites/[id]", "page");
   revalidatePath("/comics/[id]", "page");
 }
 

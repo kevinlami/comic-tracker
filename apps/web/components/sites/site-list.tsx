@@ -18,9 +18,12 @@ export function SiteList({ sites }: { sites: Site[] }) {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-body-lg text-on-surface font-semibold truncate">
+                <Link
+                  href={`/sites/${site.id}`}
+                  className="text-body-lg text-on-surface font-semibold truncate hover:text-primary transition-colors rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+                >
                   {site.name}
-                </span>
+                </Link>
                 <span
                   className={`px-2 py-0.5 rounded text-caption font-bold uppercase tracking-wider ${
                     site.isActive

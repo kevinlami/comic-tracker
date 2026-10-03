@@ -65,10 +65,38 @@ export class ComicSitesService {
     }
   }
 
-  async findAll() {
+  /**
+   * Lista os vínculos, com filtro opcional por site (`?siteId=`).
+   *
+   * O quadrinho volta com o progresso de leitura aninhado — é o que a
+   * tela de detalhe do site exibe (status, capítulo e "lido há X").
+   * Com `siteId`, a existência do site é validada antes (404).
+   */
+  async findAll(siteId?: string) {
+    let filter: { siteId: string } | undefined;
+
+    if (siteId !== undefined) {
+      if (typeof siteId !== 'string' || siteId.trim().length === 0) {
+        throw new BadRequestException('siteId must be a non-empty string');
+      }
+
+      const normalizedSiteId = siteId.trim();
+      const site = await this.prisma.site.findUnique({
+        where: { id: normalizedSiteId },
+      });
+      if (!site) {
+        throw new NotFoundException(
+          `Site with id "${normalizedSiteId}" not found`,
+        );
+      }
+
+      filter = { siteId: normalizedSiteId };
+    }
+
     return this.prisma.comicSite.findMany({
+      where: filter,
       include: {
-        comic: true,
+        comic: { include: { readingProgress: true } },
         site: true,
       },
     });

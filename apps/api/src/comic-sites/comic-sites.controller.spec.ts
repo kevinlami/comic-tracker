@@ -73,6 +73,17 @@ describe('ComicSitesController', () => {
 
       const result = await controller.findAll();
 
+      expect(service.findAll).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual(comicSites);
+    });
+
+    it('should forward siteId to the service when informed', async () => {
+      const comicSites = [{ id: 'cs-1', comicId: 'comic-1', siteId: 'site-1' }];
+      service.findAll.mockResolvedValue(comicSites);
+
+      const result = await controller.findAll('site-1');
+
+      expect(service.findAll).toHaveBeenCalledWith('site-1');
       expect(result).toEqual(comicSites);
     });
 

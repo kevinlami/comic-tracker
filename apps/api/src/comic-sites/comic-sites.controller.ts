@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -24,8 +25,8 @@ export class ComicSitesController {
   }
 
   @Get()
-  findAll() {
-    return this.comicSitesService.findAll();
+  findAll(@Query('siteId') siteId?: string) {
+    return this.comicSitesService.findAll(siteId);
   }
 
   @Get(':id')

@@ -196,6 +196,35 @@ describe('ReadingProgressService', () => {
       });
     });
 
+    it('should use an explicit lastReadAt when provided', async () => {
+      const created = {
+        ...existingReadingProgress,
+        lastReadAt: new Date('2024-08-15T12:00:00.000Z'),
+      };
+      prisma.readingProgress.create.mockResolvedValue(created);
+
+      await service.create({
+        comicId: 'comic-1',
+        currentChapterNumber: '10',
+        lastReadAt: '2024-08-15T12:00:00.000Z',
+      });
+
+      expect(prisma.readingProgress.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            lastReadAt: new Date('2024-08-15T12:00:00.000Z'),
+          }),
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when lastReadAt is invalid', async () => {
+      await expect(
+        service.create({ comicId: 'comic-1', lastReadAt: 'not-a-date' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.readingProgress.create).not.toHaveBeenCalled();
+    });
+
     it('should throw BadRequestException when currentChapterUrl is informed without a site', async () => {
       try {
         await service.create({
@@ -462,6 +491,32 @@ describe('ReadingProgressService', () => {
         'status',
       ]);
       expect(result).toEqual(updated);
+    });
+
+    it('should apply an explicit lastReadAt without touching the chapter', async () => {
+      const updated = {
+        ...existingReadingProgress,
+        lastReadAt: new Date('2024-08-15T12:00:00.000Z'),
+      };
+      prisma.readingProgress.update.mockResolvedValue(updated);
+
+      await service.update('comic-1', {
+        lastReadAt: '2024-08-15T12:00:00.000Z',
+      });
+
+      expect(prisma.readingProgress.update).toHaveBeenCalledWith({
+        where: { comicId: 'comic-1' },
+        data: { lastReadAt: new Date('2024-08-15T12:00:00.000Z') },
+        include: EXPECTED_INCLUDE,
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when lastReadAt is invalid on update', async () => {
+      await expect(
+        service.update('comic-1', { lastReadAt: 'yesterday' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.readingProgress.update).not.toHaveBeenCalled();
     });
 
     it('should update chapter info and save the url on the site', async () => {

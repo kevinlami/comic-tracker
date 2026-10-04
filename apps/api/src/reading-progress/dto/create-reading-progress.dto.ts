@@ -8,4 +8,9 @@ export class CreateReadingProgressDto {
   currentChapterUrl?: string | null;
   comicSiteId?: string | null;
   status?: string;
+  /**
+   * Data da leitura (ISO 8601). Opcional — usado para importações com
+   * histórico; sem informar, a data é a do momento do registro.
+   */
+  lastReadAt?: string | null;
 }

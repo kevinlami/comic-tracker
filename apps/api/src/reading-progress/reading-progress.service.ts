@@ -23,6 +23,7 @@ type ProgressFields = {
   currentChapterUrl?: string | null;
   comicSiteId?: string | null;
   status?: string;
+  lastReadAt?: string | null;
 };
 
 /**
@@ -85,10 +86,31 @@ export class ReadingProgressService {
     }
   }
 
+  private validateLastReadAt(value: unknown): void {
+    if (value === undefined || value === null) {
+      return;
+    }
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new BadRequestException('lastReadAt must be a non-empty ISO 8601 string or null');
+    }
+    if (Number.isNaN(new Date(value.trim()).getTime())) {
+      throw new BadRequestException('lastReadAt must be a valid ISO 8601 date');
+    }
+  }
+
+  /** Data informada (ISO) convertida, ou `null` quando limpa. */
+  private parseLastReadAt(value: string | null | undefined): Date | null | undefined {
+    if (value === undefined || value === null) {
+      return value;
+    }
+    return new Date(value.trim());
+  }
+
   private validateChapterFields(dto: ProgressFields): void {
     this.validateChapterNumber(dto.currentChapterNumber);
     this.validateChapterUrl(dto.currentChapterUrl);
     this.validateComicSiteId(dto.comicSiteId);
+    this.validateLastReadAt(dto.lastReadAt);
   }
 
   private async assertComicSiteBelongsToComic(
@@ -217,7 +239,13 @@ export class ReadingProgressService {
       currentChapterNumber,
       comicSiteId: dto.comicSiteId,
       status: dto.status as ReadingStatus | undefined,
-      lastReadAt: hasChapterInfo ? new Date() : null,
+      // Data explícita (importação com histórico) vence a data de agora.
+      lastReadAt:
+        dto.lastReadAt !== undefined
+          ? this.parseLastReadAt(dto.lastReadAt) ?? null
+          : hasChapterInfo
+            ? new Date()
+            : null,
     };
   }
 
@@ -257,6 +285,11 @@ export class ReadingProgressService {
       } else if (anyInformed) {
         data.lastReadAt = new Date();
       }
+    }
+
+    // Data explícita (importação com histórico) vence as regras acima.
+    if (dto.lastReadAt !== undefined) {
+      data.lastReadAt = this.parseLastReadAt(dto.lastReadAt) ?? null;
     }
 
     return data;

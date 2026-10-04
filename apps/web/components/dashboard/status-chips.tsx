@@ -1,15 +1,14 @@
 import Link from "next/link";
 import type { ReadingStatus } from "@/types/comic";
-import { buildDashboardHref } from "@/lib/dashboard-url";
+import { buildDashboardHref, type DashboardQuery } from "@/lib/dashboard-url";
 import {
   READING_STATUS_DOT,
   READING_STATUS_LABEL,
 } from "./status-display";
 
 interface StatusChipsProps {
-  search: string;
-  status: string;
-  order: string;
+  /** Filtros atuais da URL, preservados ao trocar o status. */
+  query: DashboardQuery;
 }
 
 interface ChipDefinition {
@@ -39,7 +38,7 @@ const CHIPS: ChipDefinition[] = [
  * Filtros por status de leitura como links: o estado vive na URL
  * (`?status=`) e pode ser compartilhado/recarregado.
  */
-export function StatusChips({ search, status, order }: StatusChipsProps) {
+export function StatusChips({ query }: StatusChipsProps) {
   return (
     <div
       role="group"
@@ -48,8 +47,8 @@ export function StatusChips({ search, status, order }: StatusChipsProps) {
     >
       {CHIPS.map((chip) => {
         const chipStatus = chip.status ?? "";
-        const isActive = status === chipStatus;
-        const href = buildDashboardHref({ search, order, status: chipStatus });
+        const isActive = query.status === chipStatus;
+        const href = buildDashboardHref({ ...query, status: chipStatus });
 
         return (
           <Link

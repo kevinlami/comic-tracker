@@ -383,6 +383,150 @@ describe('ComicsService', () => {
         expect(error).toBeInstanceOf(BadRequestException);
       }
     });
+
+    it('should filter by exact rating', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ rating: ' 4 ' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { rating: 4 },
+        }),
+      );
+    });
+
+    it('should filter unrated comics when rating is none', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ rating: 'none' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { rating: null },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when rating filter is invalid', async () => {
+      await expect(service.findAll({ rating: '4+' })).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.findAll({ rating: '6' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should filter by linked site', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ site: 'site-abc' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sites: { some: { siteId: 'site-abc' } } },
+        }),
+      );
+    });
+
+    it('should filter comics without sites when site is none', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ site: 'none' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sites: { none: {} } },
+        }),
+      );
+    });
+
+    it('should filter comics read within the last week when inactive is recent', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ inactive: 'recent' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: { readingProgress: { lastReadAt: { gte: Date } } };
+      };
+      expect(where.readingProgress.lastReadAt.gte).toBeInstanceOf(Date);
+      // Leitura dos últimos 7 dias.
+      expect(where.readingProgress.lastReadAt.gte.getTime()).toBeGreaterThan(
+        Date.now() - 8 * 24 * 60 * 60 * 1000,
+      );
+      expect(where.readingProgress.lastReadAt.gte.getTime()).toBeLessThanOrEqual(
+        Date.now(),
+      );
+    });
+
+    it('should filter comics idle for more than a week when inactive is 1w', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ inactive: '1w' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: { readingProgress: { lastReadAt: { lte: Date } } };
+      };
+      expect(where.readingProgress.lastReadAt.lte).toBeInstanceOf(Date);
+      // Parado desde 7 dias atrás (com folga da própria execução do teste).
+      expect(where.readingProgress.lastReadAt.lte.getTime()).toBeGreaterThan(
+        Date.now() - 8 * 24 * 60 * 60 * 1000,
+      );
+      expect(
+        where.readingProgress.lastReadAt.lte.getTime(),
+      ).toBeLessThanOrEqual(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    });
+
+    it('should filter never-read comics when inactive is never', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ inactive: 'never' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { readingProgress: null },
+              { readingProgress: { lastReadAt: null } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException when inactive filter is invalid', async () => {
+      await expect(service.findAll({ inactive: '3d' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should combine the optional filters with search and status', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({
+        search: 'berserk',
+        status: 'READING',
+        rating: '5',
+        site: 'site-abc',
+        inactive: '2w',
+      });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(where).toEqual(
+        expect.objectContaining({
+          title: { contains: 'berserk', mode: 'insensitive' },
+          readingProgress: expect.objectContaining({
+            status: 'READING',
+            lastReadAt: expect.objectContaining({ lte: expect.any(Date) }),
+          }),
+          rating: 5,
+          sites: { some: { siteId: 'site-abc' } },
+        }),
+      );
+      expect(where).not.toHaveProperty('OR');
+    });
   });
 
   describe('findOne', () => {

@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { fetchComics } from "@/services/comics.service";
+import { fetchSites } from "@/services/sites.service";
 import { ApiError } from "@/services/api-client";
-import type { Comic } from "@/types/comic";
+import type { Comic, Site } from "@/types/comic";
+import type { DashboardQuery } from "@/lib/dashboard-url";
 import { MetricsSummary } from "@/components/dashboard/metrics-summary";
 import { SearchBar } from "@/components/dashboard/search-bar";
 import { StatusChips } from "@/components/dashboard/status-chips";
+import { ExtraFilters } from "@/components/dashboard/extra-filters";
 import { SortToggle } from "@/components/dashboard/sort-toggle";
 import { RecentReadings } from "@/components/dashboard/recent-readings";
 import { ComicsGrid } from "@/components/dashboard/comics-grid";
@@ -18,13 +21,17 @@ interface DashboardSearchParams {
   search?: string;
   status?: string;
   order?: string;
+  rating?: string;
+  site?: string;
+  inactive?: string;
 }
 
 /**
  * Dashboard do acervo — Server Component.
  *
  * Filtros, busca e ordenação vivem na URL (`?search=`, `?status=`,
- * `?order=`), então o estado é compartilhável e sobrevive ao reload.
+ * `?order=`, `?rating=`, `?site=`, `?inactive=`), então o estado é
+ * compartilhável e sobrevive ao reload.
  *
  * O skeleton fica num `Suspense` interno (e não num `loading.tsx` raiz)
  * porque qualquer `loading.tsx` na árvore impede o Next de fixar o status
@@ -51,16 +58,28 @@ async function DashboardContent({
   const search = typeof params.search === "string" ? params.search : "";
   const status = typeof params.status === "string" ? params.status : "";
   const order = typeof params.order === "string" ? params.order : "";
+  const rating = typeof params.rating === "string" ? params.rating : "";
+  const site = typeof params.site === "string" ? params.site : "";
+  const inactive = typeof params.inactive === "string" ? params.inactive : "";
+
+  const query: DashboardQuery = { search, status, order, rating, site, inactive };
 
   let comics: Comic[] = [];
+  let sites: Site[] = [];
   let error: ApiError | null = null;
 
   try {
-    comics = await fetchComics({
-      search: search || undefined,
-      status: status || undefined,
-      order: order || undefined,
-    });
+    [comics, sites] = await Promise.all([
+      fetchComics({
+        search: search || undefined,
+        status: status || undefined,
+        order: order || undefined,
+        rating: rating || undefined,
+        site: site || undefined,
+        inactive: inactive || undefined,
+      }),
+      fetchSites(),
+    ]);
   } catch (caught) {
     error =
       caught instanceof ApiError
@@ -82,7 +101,9 @@ async function DashboardContent({
   reads.sort((a, b) => Date.parse(b.lastReadAt) - Date.parse(a.lastReadAt));
   const recent = reads.slice(0, 5);
 
-  const hasFilters = Boolean(search.trim() || status || order);
+  const hasFilters = Boolean(
+    search.trim() || status || order || rating || site || inactive,
+  );
   const countLabel = hasFilters
     ? comics.length === 1
       ? "1 quadrinho filtrado"
@@ -97,10 +118,13 @@ async function DashboardContent({
 
       <section
         aria-label="Busca e filtros"
-        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-12"
+        className="flex flex-col gap-4 mb-12"
       >
-        <SearchBar initialSearch={search} />
-        <StatusChips search={search} status={status} order={order} />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <SearchBar initialSearch={search} />
+          <StatusChips query={query} />
+        </div>
+        <ExtraFilters sites={sites} query={query} />
       </section>
 
       <RecentReadings items={recent} />
@@ -126,7 +150,7 @@ async function DashboardContent({
               <AddIcon className="w-4 h-4" />
               <span>Novo quadrinho</span>
             </Link>
-            <SortToggle search={search} status={status} order={order} />
+            <SortToggle query={query} />
           </div>
         </div>
 

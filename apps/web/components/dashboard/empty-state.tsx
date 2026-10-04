@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SearchOffIcon } from "@/components/icons";
 
 interface EmptyStateProps {
-  /** `true` quando há busca/status/ordenação ativos na URL. */
+  /** `true` quando há busca/filtros ativos na URL. */
   hasFilters: boolean;
 }
 
@@ -25,7 +25,7 @@ export function EmptyState({ hasFilters }: EmptyStateProps) {
       </h3>
       <p className="text-body-sm text-on-surface-variant mt-1 mb-4 max-w-md">
         {hasFilters
-          ? "Não encontramos nenhum quadrinho correspondente à sua busca ou status selecionado."
+          ? "Não encontramos nenhum quadrinho correspondente à sua busca ou filtros selecionados."
           : "Seu acervo está vazio. Cadastre quadrinhos para vê-los aqui."}
       </p>
       {hasFilters ? (

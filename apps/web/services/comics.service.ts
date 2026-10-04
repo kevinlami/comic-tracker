@@ -5,11 +5,17 @@ export interface ListComicsParams {
   search?: string;
   status?: string;
   order?: string;
+  /** Nota exata (`"1"`…`"5"`) ou `"none"` para sem avaliação. */
+  rating?: string;
+  /** Id do site vinculado ou `"none"` para obras sem vínculo. */
+  site?: string;
+  /** Período sem leitura: `"recent"`, `"1w"`, `"2w"`, `"1m"` ou `"never"`. */
+  inactive?: string;
 }
 
 /**
  * Busca os quadrinhos com filtros opcionais (título, status de leitura,
- * ordenação) via `GET /comics`.
+ * ordenação, nota, site e período sem leitura) via `GET /comics`.
  */
 export async function fetchComics(
   params: ListComicsParams = {},
@@ -18,6 +24,9 @@ export async function fetchComics(
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
   if (params.order) query.set("order", params.order);
+  if (params.rating) query.set("rating", params.rating);
+  if (params.site) query.set("site", params.site);
+  if (params.inactive) query.set("inactive", params.inactive);
 
   const queryString = query.toString();
   return apiFetch<Comic[]>(`/comics${queryString ? `?${queryString}` : ""}`);

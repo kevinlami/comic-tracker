@@ -9,6 +9,65 @@ import { validateReadingStatus } from '../common/reading-status';
 const VALID_COMIC_TYPES = new Set(Object.values(ComicType));
 const VALID_COMIC_STATUSES = new Set(Object.values(ComicStatus));
 
+/** Valores aceitos pelos filtros opcionais de `GET /comics`. */
+const VALID_RATING_FILTERS = new Set(['1', '2', '3', '4', '5', 'none']);
+const VALID_INACTIVE_FILTERS = new Set([
+  'recent',
+  '1w',
+  '2w',
+  '1m',
+  'never',
+]);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** "Lido esta semana": leituras dos últimos 7 dias. */
+const RECENT_DAYS = 7;
+/** Dias sem leitura dos filtros "Parado há +X". */
+const INACTIVE_DAYS: Record<string, number> = { '1w': 7, '2w': 14, '1m': 30 };
+
+/** Condição do filtro de nota (`none` = obra ainda não avaliada). */
+function ratingFilterWhere(rating: string): { rating: number | null } {
+  return { rating: rating === 'none' ? null : Number(rating) };
+}
+
+/** Condição do filtro de site (`none` = obra sem nenhum vínculo). */
+function siteFilterWhere(site: string) {
+  return site === 'none'
+    ? { sites: { none: {} } }
+    : { sites: { some: { siteId: site } } };
+}
+
+/**
+ * Condição aplicada ao progresso de leitura (status e/ou `lastReadAt`).
+ * Usada quando o quadrinho precisa ter progresso registrado.
+ */
+type ProgressFilter = {
+  status?: ReadingStatus;
+  lastReadAt?: { gte?: Date; lte?: Date };
+};
+
+/**
+ * Condição do filtro de período sem leitura sobre o progresso:
+ * `recent` = leituras dos últimos 7 dias; os demais = parado há +X.
+ * O filtro `never` é tratado fora, no nível do quadrinho.
+ */
+function inactiveProgressWhere(inactive: string): ProgressFilter {
+  const sinceDays = (days: number) => new Date(Date.now() - days * DAY_MS);
+
+  if (inactive === 'recent') {
+    return { lastReadAt: { gte: sinceDays(RECENT_DAYS) } };
+  }
+  return { lastReadAt: { lte: sinceDays(INACTIVE_DAYS[inactive]) } };
+}
+
+/**
+ * Condição de "Nunca lido": sem progresso ou sem data de última leitura —
+ * em ambos os casos a obra nunca foi lida.
+ */
+const NEVER_READ_WHERE = {
+  OR: [{ readingProgress: null }, { readingProgress: { lastReadAt: null } }],
+};
+
 /**
  * Avaliação pessoal do quadrinho: inteiro de 1 a 5, ou `null` quando o
  * usuário ainda não avaliou (campo opcional). Aceita `undefined` (campo
@@ -102,9 +161,13 @@ export class ComicsService {
    *
    * - `search`: busca case-insensitive no título;
    * - `status`: filtra pelo status de leitura do progresso;
-   * - `order`: `title` (padrão, A–Z) ou `recent` (cadastro mais recente).
+   * - `order`: `title` (padrão, A–Z) ou `recent` (cadastro mais recente);
+   * - `rating`: nota exata (1–5) ou `none` para obras sem avaliação;
+   * - `site`: id do site vinculado ou `none` para obras sem vínculo;
+   * - `inactive`: período sem leitura (`recent`, `1w`, `2w`, `1m`, `never`).
    *
-   * Sem paginação: o acervo é pessoal e cabe em memória.
+   * Os filtros combinam entre si (E lógico). Sem paginação: o acervo é
+   * pessoal e cabe em memória.
    */
   async findAll(query?: ListComicsQueryDto) {
     const search =
@@ -117,6 +180,18 @@ export class ComicsService {
       typeof query?.order === 'string' && query.order.trim().length > 0
         ? query.order.trim()
         : 'title';
+    const rating =
+      typeof query?.rating === 'string' && query.rating.trim().length > 0
+        ? query.rating.trim()
+        : undefined;
+    const site =
+      typeof query?.site === 'string' && query.site.trim().length > 0
+        ? query.site.trim()
+        : undefined;
+    const inactive =
+      typeof query?.inactive === 'string' && query.inactive.trim().length > 0
+        ? query.inactive.trim()
+        : undefined;
 
     validateReadingStatus(status);
 
@@ -126,14 +201,43 @@ export class ComicsService {
       );
     }
 
+    if (rating !== undefined && !VALID_RATING_FILTERS.has(rating)) {
+      throw new BadRequestException(
+        `Invalid rating filter. Allowed values: ${[
+          ...VALID_RATING_FILTERS,
+        ].join(', ')}`,
+      );
+    }
+
+    if (inactive !== undefined && !VALID_INACTIVE_FILTERS.has(inactive)) {
+      throw new BadRequestException(
+        `Invalid inactive filter. Allowed values: ${[
+          ...VALID_INACTIVE_FILTERS,
+        ].join(', ')}`,
+      );
+    }
+
+    // Status e período sem leitura compartilham o filtro de progresso:
+    // combinados num único objeto para não se sobrescreverem.
+    const progressWhere: ProgressFilter = {};
+    if (status !== undefined) {
+      progressWhere.status = status as ReadingStatus;
+    }
+    if (inactive !== undefined && inactive !== 'never') {
+      Object.assign(progressWhere, inactiveProgressWhere(inactive));
+    }
+
     return this.prisma.comic.findMany({
       where: {
         ...(search.length > 0
           ? { title: { contains: search, mode: 'insensitive' } }
           : {}),
-        ...(status !== undefined
-          ? { readingProgress: { status: status as ReadingStatus } }
+        ...(inactive === 'never' ? NEVER_READ_WHERE : {}),
+        ...(Object.keys(progressWhere).length > 0
+          ? { readingProgress: progressWhere }
           : {}),
+        ...(rating !== undefined ? ratingFilterWhere(rating) : {}),
+        ...(site !== undefined ? siteFilterWhere(site) : {}),
       },
       orderBy: order === 'recent' ? { createdAt: 'desc' } : { title: 'asc' },
       include: COMIC_INCLUDE,

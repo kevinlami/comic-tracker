@@ -1,25 +1,23 @@
 import Link from "next/link";
 import { SortIcon } from "@/components/icons";
-import { buildDashboardHref } from "@/lib/dashboard-url";
+import { buildDashboardHref, type DashboardQuery } from "@/lib/dashboard-url";
 
 interface SortToggleProps {
-  search: string;
-  status: string;
-  order: string;
+  /** Filtros atuais da URL, preservados ao alternar a ordenação. */
+  query: DashboardQuery;
 }
 
 /**
  * Alterna a ordenação do acervo entre título (A–Z, padrão) e
  * cadastro mais recente — o estado vive na URL (`?order=`).
  */
-export function SortToggle({ search, status, order }: SortToggleProps) {
-  const current = order === "recent" ? "recent" : "title";
+export function SortToggle({ query }: SortToggleProps) {
+  const current = query.order === "recent" ? "recent" : "title";
   const next = current === "recent" ? "title" : "recent";
   const label = current === "recent" ? "Recentes" : "Título A–Z";
 
   const href = buildDashboardHref({
-    search,
-    status,
+    ...query,
     order: next === "title" ? "" : next,
   });
 

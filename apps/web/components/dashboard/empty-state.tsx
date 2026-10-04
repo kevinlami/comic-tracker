@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SearchOffIcon } from "@/components/icons";
+import { buildDashboardHref } from "@/lib/dashboard-url";
 
 interface EmptyStateProps {
   /** `true` quando há busca/filtros ativos na URL. */
@@ -30,7 +31,7 @@ export function EmptyState({ hasFilters }: EmptyStateProps) {
       </p>
       {hasFilters ? (
         <Link
-          href="/"
+          href={buildDashboardHref({})}
           className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-label-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
         >
           Limpar filtros

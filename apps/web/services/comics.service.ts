@@ -9,13 +9,16 @@ export interface ListComicsParams {
   rating?: string;
   /** Id do site vinculado ou `"none"` para obras sem vínculo. */
   site?: string;
+  /** `active` (≥1 site ativo) ou `inactive` (≥1 site desativado). */
+  siteStatus?: string;
   /** Período sem leitura: `"recent"`, `"1w"`, `"2w"`, `"1m"` ou `"never"`. */
   inactive?: string;
 }
 
 /**
  * Busca os quadrinhos com filtros opcionais (título, status de leitura,
- * ordenação, nota, site e período sem leitura) via `GET /comics`.
+ * ordenação, nota, site, situação dos sites e período sem leitura)
+ * via `GET /comics`.
  */
 export async function fetchComics(
   params: ListComicsParams = {},
@@ -26,6 +29,7 @@ export async function fetchComics(
   if (params.order) query.set("order", params.order);
   if (params.rating) query.set("rating", params.rating);
   if (params.site) query.set("site", params.site);
+  if (params.siteStatus) query.set("siteStatus", params.siteStatus);
   if (params.inactive) query.set("inactive", params.inactive);
 
   const queryString = query.toString();

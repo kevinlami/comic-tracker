@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ClockIcon, CloseIcon, GlobeIcon, StarIcon } from "@/components/icons";
+import { SiteStatusToggle } from "@/components/dashboard/site-status-toggle";
 import { buildDashboardHref, type DashboardQuery } from "@/lib/dashboard-url";
 import type { Site } from "@/types/comic";
 
@@ -95,17 +96,19 @@ function FilterSelect({
 }
 
 /**
- * Filtros secundários do acervo — nota, site e período sem leitura.
+ * Filtros secundários do acervo — nota, site, período sem leitura e o
+ * toggle de sites ativos/desativados.
  *
- * O estado vive na URL (`?rating=`, `?site=`, `?inactive=`) e cada
- * mudança navega sem recarregar a página, como na busca e nos chips
- * de status.
+ * O estado vive na URL (`?rating=`, `?site=`, `?inactive=`,
+ * `?siteStatus=`) e cada mudança navega sem recarregar a página, como
+ * na busca e nos chips de status.
  */
 export function ExtraFilters({ sites, query }: ExtraFiltersProps) {
   const router = useRouter();
   const rating = query.rating ?? "";
   const site = query.site ?? "";
   const inactive = query.inactive ?? "";
+  const siteStatus = query.siteStatus ?? "";
 
   const applyFilter = (patch: DashboardQuery) => {
     router.replace(buildDashboardHref({ ...query, ...patch }), {
@@ -124,6 +127,13 @@ export function ExtraFilters({ sites, query }: ExtraFiltersProps) {
   if (rating) activeFilters.push(activeLabel(RATING_OPTIONS, rating));
   if (site) activeFilters.push(activeLabel(siteOptions, site));
   if (inactive) activeFilters.push(activeLabel(INACTIVE_OPTIONS, inactive));
+  // O toggle fica visível mesmo sem filtro, mas o chip só aparece
+  // quando `siteStatus` está na URL (filtro realmente aplicado).
+  if (siteStatus) {
+    activeFilters.push(
+      siteStatus === "inactive" ? "sites desativados" : "sites ativos",
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -155,6 +165,7 @@ export function ExtraFilters({ sites, query }: ExtraFiltersProps) {
           options={INACTIVE_OPTIONS}
           onChange={(value) => applyFilter({ inactive: value })}
         />
+        <SiteStatusToggle query={query} />
       </div>
 
       {activeFilters.length > 0 ? (

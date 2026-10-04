@@ -1,10 +1,15 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { fetchComics } from "@/services/comics.service";
 import { fetchSites } from "@/services/sites.service";
 import { ApiError } from "@/services/api-client";
 import type { Comic, Site } from "@/types/comic";
-import type { DashboardQuery } from "@/lib/dashboard-url";
+import {
+  buildDashboardHref,
+  DASHBOARD_DEFAULT_QUERY,
+  type DashboardQuery,
+} from "@/lib/dashboard-url";
 import { MetricsSummary } from "@/components/dashboard/metrics-summary";
 import { SearchBar } from "@/components/dashboard/search-bar";
 import { StatusChips } from "@/components/dashboard/status-chips";
@@ -23,6 +28,7 @@ interface DashboardSearchParams {
   order?: string;
   rating?: string;
   site?: string;
+  siteStatus?: string;
   inactive?: string;
 }
 
@@ -30,39 +36,59 @@ interface DashboardSearchParams {
  * Dashboard do acervo — Server Component.
  *
  * Filtros, busca e ordenação vivem na URL (`?search=`, `?status=`,
- * `?order=`, `?rating=`, `?site=`, `?inactive=`), então o estado é
- * compartilhável e sobrevive ao reload.
+ * `?order=`, `?rating=`, `?site=`, `?siteStatus=`, `?inactive=`), então o
+ * estado é compartilhável e sobrevive ao reload.
+ *
+ * Abrir o acervo sem nenhum filtro na URL redireciona para a visão padrão
+ * (`DASHBOARD_DEFAULT_QUERY`): os filtros são materializados na URL, que
+ * passa a refletir o que a tela mostra. "Limpar filtros" vai para a URL
+ * "sem filtros" (parâmetros vazios) e nunca para `/`.
  *
  * O skeleton fica num `Suspense` interno (e não num `loading.tsx` raiz)
  * porque qualquer `loading.tsx` na árvore impede o Next de fixar o status
  * 404 de `notFound()` nas demais rotas (vercel/next.js#97514, #99318).
  */
-export default function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<DashboardSearchParams>;
-}) {
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-async function DashboardContent({
+export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<DashboardSearchParams>;
 }) {
   const params = await searchParams;
+
+  if (Object.keys(params).length === 0) {
+    redirect(buildDashboardHref(DASHBOARD_DEFAULT_QUERY));
+  }
+
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent params={params} />
+    </Suspense>
+  );
+}
+
+async function DashboardContent({
+  params,
+}: {
+  params: DashboardSearchParams;
+}) {
   const search = typeof params.search === "string" ? params.search : "";
   const status = typeof params.status === "string" ? params.status : "";
   const order = typeof params.order === "string" ? params.order : "";
   const rating = typeof params.rating === "string" ? params.rating : "";
   const site = typeof params.site === "string" ? params.site : "";
+  const siteStatus =
+    typeof params.siteStatus === "string" ? params.siteStatus : "";
   const inactive = typeof params.inactive === "string" ? params.inactive : "";
 
-  const query: DashboardQuery = { search, status, order, rating, site, inactive };
+  const query: DashboardQuery = {
+    search,
+    status,
+    order,
+    rating,
+    site,
+    siteStatus,
+    inactive,
+  };
 
   let comics: Comic[] = [];
   let sites: Site[] = [];
@@ -76,6 +102,7 @@ async function DashboardContent({
         order: order || undefined,
         rating: rating || undefined,
         site: site || undefined,
+        siteStatus: siteStatus || undefined,
         inactive: inactive || undefined,
       }),
       fetchSites(),
@@ -102,7 +129,7 @@ async function DashboardContent({
   const recent = reads.slice(0, 5);
 
   const hasFilters = Boolean(
-    search.trim() || status || order || rating || site || inactive,
+    search.trim() || status || order || rating || site || siteStatus || inactive,
   );
   const countLabel = hasFilters
     ? comics.length === 1

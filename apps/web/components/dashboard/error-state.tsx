@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CloudOffIcon, RefreshIcon } from "@/components/icons";
+import { buildDashboardHref } from "@/lib/dashboard-url";
 
 interface ErrorStateProps {
   status: number;
@@ -35,7 +36,7 @@ export function ErrorState({ status, message }: ErrorStateProps) {
       </p>
       {isInvalidFilter ? (
         <Link
-          href="/"
+          href={buildDashboardHref({})}
           className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-label-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
         >
           Limpar filtros

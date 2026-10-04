@@ -523,6 +523,74 @@ describe('ComicsService', () => {
       );
     });
 
+    it('should filter comics linked to at least one active site', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ siteStatus: 'active' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [{ sites: { some: { site: { isActive: true } } } }],
+          },
+        }),
+      );
+    });
+
+    it('should filter comics linked to at least one inactive site', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ siteStatus: 'inactive' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [{ sites: { some: { site: { isActive: false } } } }],
+          },
+        }),
+      );
+    });
+
+    it('should keep both site filters when siteStatus is combined with site', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ site: 'site-abc', siteStatus: 'inactive' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      // `sites` do filtro de site não pode ser sobrescrito pelo de situação.
+      expect(where.sites).toEqual({ some: { siteId: 'site-abc' } });
+      expect(where.AND).toEqual([
+        { sites: { some: { site: { isActive: false } } } },
+      ]);
+    });
+
+    it('should stack siteStatus on the PLAN_TO_READ branch', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'PLAN_TO_READ', siteStatus: 'active' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(where.AND).toEqual([
+        {
+          OR: [
+            { readingProgress: { status: 'PLAN_TO_READ' } },
+            { readingProgress: null },
+          ],
+        },
+        { sites: { some: { site: { isActive: true } } } },
+      ]);
+    });
+
+    it('should throw BadRequestException when siteStatus filter is invalid', async () => {
+      await expect(service.findAll({ siteStatus: 'yes' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
     it('should filter comics read within the last week when inactive is recent', async () => {
       prisma.comic.findMany.mockResolvedValue([]);
 

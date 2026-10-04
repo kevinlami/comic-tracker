@@ -4,6 +4,7 @@ import { CreateComicDto } from './dto/create-comic.dto';
 import { UpdateComicDto } from './dto/update-comic.dto';
 import { ListComicsQueryDto } from './dto/list-comics.query.dto';
 import { ComicType, ComicStatus, ReadingStatus } from '../generated/enums';
+import { Prisma } from '../generated/client';
 import { validateReadingStatus } from '../common/reading-status';
 
 const VALID_COMIC_TYPES = new Set(Object.values(ComicType));
@@ -18,6 +19,7 @@ const VALID_INACTIVE_FILTERS = new Set([
   '1m',
   'never',
 ]);
+const VALID_SITE_STATUS_FILTERS = new Set(['active', 'inactive']);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** "Lido esta semana": leituras dos últimos 7 dias. */
@@ -35,6 +37,19 @@ function siteFilterWhere(site: string) {
   return site === 'none'
     ? { sites: { none: {} } }
     : { sites: { some: { siteId: site } } };
+}
+
+/**
+ * Condição do filtro de situação dos sites vinculados (`active` = ≥1 site
+ * ativo, `inactive` = ≥1 site desativado). Obras sem site não satisfazem
+ * nenhum dos dois ramos, como definido para o toggle do acervo.
+ */
+function siteStatusFilterWhere(siteStatus: string) {
+  return {
+    sites: {
+      some: { site: { isActive: siteStatus === 'active' } },
+    },
+  };
 }
 
 /**
@@ -165,6 +180,8 @@ export class ComicsService {
    * - `order`: `title` (padrão, A–Z) ou `recent` (cadastro mais recente);
    * - `rating`: nota exata (1–5) ou `none` para obras sem avaliação;
    * - `site`: id do site vinculado ou `none` para obras sem vínculo;
+   * - `siteStatus`: `active` (≥1 site ativo) ou `inactive` (≥1 site
+   *   desativado); obras sem site não satisfazem nenhum dos dois;
    * - `inactive`: período sem leitura (`recent`, `1w`, `2w`, `1m`, `never`).
    *
    * Os filtros combinam entre si (E lógico). Sem paginação: o acervo é
@@ -188,6 +205,10 @@ export class ComicsService {
     const site =
       typeof query?.site === 'string' && query.site.trim().length > 0
         ? query.site.trim()
+        : undefined;
+    const siteStatus =
+      typeof query?.siteStatus === 'string' && query.siteStatus.trim().length > 0
+        ? query.siteStatus.trim()
         : undefined;
     const inactive =
       typeof query?.inactive === 'string' && query.inactive.trim().length > 0
@@ -218,6 +239,17 @@ export class ComicsService {
       );
     }
 
+    if (
+      siteStatus !== undefined &&
+      !VALID_SITE_STATUS_FILTERS.has(siteStatus)
+    ) {
+      throw new BadRequestException(
+        `Invalid siteStatus filter. Allowed values: ${[
+          ...VALID_SITE_STATUS_FILTERS,
+        ].join(', ')}`,
+      );
+    }
+
     // Status e período sem leitura compartilham o filtro de progresso:
     // combinados num único objeto para não se sobrescreverem.
     const progressWhere: ProgressFilter = {};
@@ -231,9 +263,25 @@ export class ComicsService {
     // "Planejo ler" contempla também obras ainda sem progresso (nunca
     // iniciadas), como já faz o rótulo do card. O ramo sem progresso é
     // omitido em "lido esta semana", que exige leitura registrada.
-    // O `AND` evita colidir com o `OR` do filtro "nunca lido".
     const includeNotStarted =
       status === 'PLAN_TO_READ' && inactive !== 'recent';
+
+    // Condições que disputam chaves já ocupadas no `where` (`AND`) ou que
+    // precisam ser combinadas com o filtro `site`, que usa a chave `sites`:
+    // reunidas num único `AND` para não se sobrescreverem.
+    const andConditions: Prisma.ComicWhereInput[] = [];
+    if (includeNotStarted) {
+      // O `AND` evita colidir com o `OR` do filtro "nunca lido".
+      andConditions.push({
+        OR: [
+          { readingProgress: progressWhere },
+          { readingProgress: null },
+        ],
+      });
+    }
+    if (siteStatus !== undefined) {
+      andConditions.push(siteStatusFilterWhere(siteStatus));
+    }
 
     return this.prisma.comic.findMany({
       where: {
@@ -244,20 +292,9 @@ export class ComicsService {
         ...(Object.keys(progressWhere).length > 0 && !includeNotStarted
           ? { readingProgress: progressWhere }
           : {}),
-        ...(includeNotStarted
-          ? {
-              AND: [
-                {
-                  OR: [
-                    { readingProgress: progressWhere },
-                    { readingProgress: null },
-                  ],
-                },
-              ],
-            }
-          : {}),
         ...(rating !== undefined ? ratingFilterWhere(rating) : {}),
         ...(site !== undefined ? siteFilterWhere(site) : {}),
+        ...(andConditions.length > 0 ? { AND: andConditions } : {}),
       },
       orderBy: order === 'recent' ? { createdAt: 'desc' } : { title: 'asc' },
       include: COMIC_INCLUDE,

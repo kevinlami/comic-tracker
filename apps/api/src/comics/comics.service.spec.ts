@@ -346,6 +346,88 @@ describe('ComicsService', () => {
       );
     });
 
+    it('should include comics without progress when status is PLAN_TO_READ', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'PLAN_TO_READ' });
+
+      expect(prisma.comic.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              {
+                OR: [
+                  { readingProgress: { status: 'PLAN_TO_READ' } },
+                  { readingProgress: null },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should require reading history when PLAN_TO_READ is combined with recent', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'PLAN_TO_READ', inactive: 'recent' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: { readingProgress?: unknown; AND?: unknown };
+      };
+      expect(where).not.toHaveProperty('AND');
+      expect(where.readingProgress).toEqual({
+        status: 'PLAN_TO_READ',
+        lastReadAt: { gte: expect.any(Date) },
+      });
+    });
+
+    it('should apply the idle period to both branches when PLAN_TO_READ is combined with 1w', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'PLAN_TO_READ', inactive: '1w' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(where).not.toHaveProperty('readingProgress');
+      expect(where.AND).toEqual([
+        {
+          OR: [
+            {
+              readingProgress: {
+                status: 'PLAN_TO_READ',
+                lastReadAt: { lte: expect.any(Date) },
+              },
+            },
+            { readingProgress: null },
+          ],
+        },
+      ]);
+    });
+
+    it('should keep the never-read filter when PLAN_TO_READ is combined with never', async () => {
+      prisma.comic.findMany.mockResolvedValue([]);
+
+      await service.findAll({ status: 'PLAN_TO_READ', inactive: 'never' });
+
+      const { where } = prisma.comic.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(where.OR).toEqual([
+        { readingProgress: null },
+        { readingProgress: { lastReadAt: null } },
+      ]);
+      expect(where.AND).toEqual([
+        {
+          OR: [
+            { readingProgress: { status: 'PLAN_TO_READ' } },
+            { readingProgress: null },
+          ],
+        },
+      ]);
+    });
+
     it('should ignore empty search and status', async () => {
       prisma.comic.findMany.mockResolvedValue([]);
 

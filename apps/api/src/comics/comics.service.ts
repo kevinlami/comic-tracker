@@ -160,7 +160,8 @@ export class ComicsService {
    * Lista quadrinhos com filtros opcionais para o dashboard.
    *
    * - `search`: busca case-insensitive no título;
-   * - `status`: filtra pelo status de leitura do progresso;
+   * - `status`: filtra pelo status de leitura do progresso (`PLAN_TO_READ`
+   *   também inclui obras ainda sem progresso, ou seja, nunca iniciadas);
    * - `order`: `title` (padrão, A–Z) ou `recent` (cadastro mais recente);
    * - `rating`: nota exata (1–5) ou `none` para obras sem avaliação;
    * - `site`: id do site vinculado ou `none` para obras sem vínculo;
@@ -227,14 +228,33 @@ export class ComicsService {
       Object.assign(progressWhere, inactiveProgressWhere(inactive));
     }
 
+    // "Planejo ler" contempla também obras ainda sem progresso (nunca
+    // iniciadas), como já faz o rótulo do card. O ramo sem progresso é
+    // omitido em "lido esta semana", que exige leitura registrada.
+    // O `AND` evita colidir com o `OR` do filtro "nunca lido".
+    const includeNotStarted =
+      status === 'PLAN_TO_READ' && inactive !== 'recent';
+
     return this.prisma.comic.findMany({
       where: {
         ...(search.length > 0
           ? { title: { contains: search, mode: 'insensitive' } }
           : {}),
         ...(inactive === 'never' ? NEVER_READ_WHERE : {}),
-        ...(Object.keys(progressWhere).length > 0
+        ...(Object.keys(progressWhere).length > 0 && !includeNotStarted
           ? { readingProgress: progressWhere }
+          : {}),
+        ...(includeNotStarted
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { readingProgress: progressWhere },
+                    { readingProgress: null },
+                  ],
+                },
+              ],
+            }
           : {}),
         ...(rating !== undefined ? ratingFilterWhere(rating) : {}),
         ...(site !== undefined ? siteFilterWhere(site) : {}),

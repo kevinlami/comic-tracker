@@ -16,6 +16,7 @@ import {
   RefreshIcon,
   SaveIcon,
 } from "@/components/icons";
+import { NumericStepper } from "./numeric-stepper";
 
 const READING_STATUS_ORDER: ReadingStatus[] = [
   "READING",
@@ -70,16 +71,6 @@ export function ProgressForm({ comic }: { comic: Comic }) {
     setUrl(savedChapterUrl(comic, nextSiteId));
   }
 
-  function adjustChapter(delta: number) {
-    setChapter((current) => {
-      const next = Math.max(
-        0,
-        Math.round(((parseFloat(current) || 0) + delta) * 1000) / 1000,
-      );
-      return String(next);
-    });
-  }
-
   return (
     <>
       {state ? (
@@ -119,44 +110,14 @@ export function ProgressForm({ comic }: { comic: Comic }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label
-              htmlFor="chapter"
-              className="block text-label-sm text-on-surface-variant"
-            >
-              Capítulo Atual (decimal)
-            </label>
-            <div className="relative flex items-center">
-              <input
-                id="chapter"
-                name="currentChapterNumber"
-                type="number"
-                min={0}
-                step={0.5}
-                inputMode="decimal"
-                required
-                value={chapter}
-                onChange={(event) => setChapter(event.target.value)}
-                className="w-full bg-surface-container rounded px-3 py-2 pr-14 text-on-surface text-body-md focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-              />
-              <div className="absolute right-2 flex items-center gap-1">
-                <button
-                  type="button"
-                  aria-label="Diminuir meio capítulo"
-                  onClick={() => adjustChapter(-0.5)}
-                  className="w-6 h-6 rounded-sm bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface text-caption font-bold"
-                >
-                  -
-                </button>
-                <button
-                  type="button"
-                  aria-label="Aumentar meio capítulo"
-                  onClick={() => adjustChapter(0.5)}
-                  className="w-6 h-6 rounded-sm bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface text-caption font-bold"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            <NumericStepper
+              value={chapter}
+              onChange={(val) => setChapter(val)}
+              step={0.5}
+              min={0}
+              label="Capítulo Atual (decimal)"
+              inputMode="decimal"
+            />
           </div>
 
           <div className="space-y-1.5">

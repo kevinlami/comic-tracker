@@ -51,7 +51,7 @@ export function AddLinkSection({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-surface-container-high hover:bg-surface-bright text-on-surface text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
         >
           <AddIcon className="w-[18px] h-[18px]" />
-          <span>{open ? "Fechar" : "+ Adicionar Novo Vínculo"}</span>
+          <span>{open ? "Fechar" : "Adicionar Novo Vínculo"}</span>
         </button>
       </div>
 

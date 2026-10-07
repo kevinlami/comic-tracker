@@ -100,6 +100,11 @@ export function ProgressForm({ comic }: { comic: Comic }) {
           name="initialChapterNumber"
           value={initialChapter}
         />
+        <input
+          type="hidden"
+          name="currentChapterNumber"
+          value={chapter}
+        />
         <input type="hidden" name="initialChapterUrl" value={initialUrl} />
         <input type="hidden" name="initialComicSiteId" value={initialSiteId} />
         <input

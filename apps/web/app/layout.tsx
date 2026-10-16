@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MainNav } from "@/components/main-nav";
+import { ShutdownButton } from "@/components/shutdown-button";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </Link>
               <MainNav />
             </div>
+            <ShutdownButton />
           </div>
         </header>
 

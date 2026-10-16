@@ -199,3 +199,24 @@ dist/
 .claude/
 .windsurf/
 ```
+
+## Ligar e desligar localmente (Windows)
+
+Para não precisar digitar `pnpm dev` toda vez, o projeto inclui dois
+executáveis de duplo clique na raiz:
+
+- `iniciar-comic-tracker.bat` — sobe o PostgreSQL e os servidores (API e
+  Web) em **uma única janela de comando** e abre o navegador em
+  `http://comic.local:3001`. Se os servidores já estiverem rodando, apenas
+  abre o navegador.
+- `parar-comic-tracker.bat` — fecha a API e a Web e para o PostgreSQL.
+
+Há também um atalho **"Comic Tracker"** na área de trabalho apontando para
+o `iniciar-comic-tracker.bat`, e o cabeçalho do app tem um botão **"Sair"**
+que encerra o projeto (API, Web e PostgreSQL) direto da interface.
+
+Na primeira execução, o Windows pede permissão de administrador
+(necessária para editar o arquivo `hosts` e controlar o serviço do
+PostgreSQL). O script adiciona `127.0.0.1 comic.local` ao arquivo
+`hosts` automaticamente, tornando a URL amigável sem servidor externo.
+Todo o acesso é local ao seu PC.

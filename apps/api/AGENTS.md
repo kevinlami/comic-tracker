@@ -7,8 +7,10 @@ Este diretório contém o backend/API do Comic Tracker.
 Tecnologias principais:
 
 - NestJS;
-- TypeScript;
-- Jest.
+- TypeScript (estrito);
+- Prisma 7 + PostgreSQL;
+- Jest;
+- oxlint.
 
 A API é responsável por:
 
@@ -32,23 +34,21 @@ As regras da raiz continuam sendo aplicáveis.
 
 O backend utiliza a arquitetura modular do NestJS.
 
-A estrutura deve evoluir conforme as funcionalidades forem criadas.
+Os módulos atuais ficam diretamente em `src/` (não existe pasta `modules`):
 
-Uma possível organização é:
+`src/comics/`
 
-`src/modules/comics/`
+`src/sites/`
 
-`src/modules/comic-sites/`
+`src/comic-sites/`
 
-`src/modules/reading/`
+`src/reading-progress/`
 
-`src/modules/sites/`
+`src/prisma/`
 
 `src/common/`
 
-`src/config/`
-
-Não criar todos esses módulos ou diretórios antecipadamente.
+A estrutura deve evoluir conforme as funcionalidades forem criadas.
 
 Criar estruturas somente quando existir uma necessidade real.
 
@@ -82,7 +82,7 @@ Exemplos:
 
 - `ComicsModule`;
 - `ComicSitesModule`;
-- `ReadingModule`;
+- `ReadingProgressModule`;
 - `SitesModule`.
 
 Um módulo deve agrupar funcionalidades relacionadas.
@@ -296,6 +296,12 @@ Não introduzir Repository Pattern, Unit of Work ou outras abstrações
 sem necessidade real.
 
 A arquitetura deve acompanhar a complexidade real do projeto.
+
+O projeto usa **Prisma 7** (adapter `pg`): schema em
+`prisma/schema.prisma`, client gerado em `src/generated`, migrations em
+`prisma/migrations` e seed em `prisma/seed.ts` (`pnpm --filter api db:seed`).
+DTOs de escrita não devem ser reutilizados automaticamente como entidades
+de persistência.
 
 ---
 

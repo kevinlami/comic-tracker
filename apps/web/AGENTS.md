@@ -39,17 +39,16 @@ Estrutura esperada:
 
 ```text
 apps/web/
-├── app/             # App Router e páginas
-├── components/      # Componentes reutilizáveis
-├── features/        # Funcionalidades organizadas por domínio
-├── hooks/           # Hooks reutilizáveis
-├── lib/             # Configurações e utilitários técnicos
-├── services/        # Comunicação com APIs e serviços externos
+├── app/             # App Router, páginas e Server Actions (actions.ts)
+├── components/      # Componentes organizados por domínio (dashboard/, comic-detail/, comic-form/, sites/, rating/)
+├── lib/             # Configurações e utilitários técnicos (dashboard-url, form-action, rating, datas)
+├── services/        # Comunicação com a API (api-client + services por domínio)
 ├── types/           # Tipos compartilhados do frontend
-├── styles/          # Estilos globais
 └── public/          # Arquivos estáticos
 ```
-Essa estrutura não deve ser criada completamente de forma antecipada.
+
+A estrutura acima é a organização atual do projeto.
+Ela não deve ser criada completamente de forma antecipada.
 
 Criar diretórios somente quando forem necessários.
 
@@ -130,33 +129,26 @@ apenas por antecipação.
 
 ## 6. Organização por funcionalidade
 
-Funcionalidades maiores podem ser organizadas em `features/`.
-
-Exemplo:
-
-```text
-features/
-├── comics/
-├── reading/
-└── sites/
-```
-
-Uma feature pode conter seus próprios:
+O padrão atual do projeto organiza funcionalidades em `components/<domínio>/`:
 
 ```text
 components/
-hooks/
-services/
-types/
-utils/
+├── dashboard/
+├── comic-detail/
+├── comic-form/
+├── sites/
+└── rating/
 ```
 
-quando isso melhorar a organização.
+Componentes do mesmo domínio ficam juntos nesses diretórios.
 
 Não criar essas estruturas automaticamente para todas as features.
 
 Para funcionalidades pequenas, uma estrutura mais simples pode ser
 preferível.
+
+Criar `features/`, `hooks/` ou outra estrutura nova somente quando
+houver necessidade real.
 
 ---
 
@@ -224,6 +216,28 @@ Exemplo de organização:
 
 Os componentes devem se preocupar principalmente com apresentação
 e interação, e não com detalhes de implementação das requisições.
+
+---
+
+### 9.1 Escritas: Server Actions
+
+Criar, editar e excluir registros é feito através de **Server Actions**
+em arquivos `app/*/actions.ts` (com `"use server"`).
+
+Padrão a seguir:
+
+1. validar o formulário na action, gerando mensagens amigáveis em pt-BR
+   (ver `lib/form-action.ts` e `services/comics.service.ts`);
+2. chamar o service do domínio (`services/*.service.ts`);
+3. em caso de erro, retornar `{ ok: false, message }` para o formulário
+   exibir a mensagem (também tratar `ApiError`);
+4. em caso de sucesso, chamar `revalidatePath` nas rotas afetadas e
+   `redirect` para o destino (ou `revalidatePath` quando permanecer
+   na mesma rota).
+
+Não chamar a API diretamente a partir de componentes do cliente:
+Componentes devem disparar as actions de formulário, não montar
+requisições próprias.
 
 ---
 

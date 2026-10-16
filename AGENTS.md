@@ -8,11 +8,14 @@ mangás, manhwas, manhuas, webtoons, comics e outros tipos de quadrinhos.
 O sistema tem como objetivo permitir que o usuário:
 
 - cadastre e acompanhe obras que está lendo;
-- registre o capítulo atual;
+- registre a **última leitura**: capítulo numérico atual e URL do capítulo por
+  site (não há histórico de leitura — ver decisão `docs/decisions/0001`);
+- avalie cada obra com uma nota pessoal de 1 a 5;
 - cadastre os sites onde lê e mantenha os links de leitura;
-- acompanhe o histórico de leitura;
 - centralize informações de diferentes fontes;
-- visualize o dashboard organizando seus quadrinhos e o progresso de leitura.
+- visualize o dashboard (acervo) organizando seus quadrinhos e o progresso de leitura;
+- filtre, busque e ordene o acervo pela URL, com visão padrão aplicada
+  automaticamente (ver decisão `docs/decisions/0003`).
 
 O cadastro de quadrinhos e de sites é feito **manualmente** pelo usuário.
 
@@ -54,7 +57,7 @@ comic-tracker/
 
 ### `apps/web`
 * **Descrição:** Frontend da aplicação.
-* **Tecnologias Principais:** Next.js, React, TypeScript, Tailwind CSS.
+* **Tecnologias Principais:** Next.js 16 (App Router), React 19, TypeScript (estrito), Tailwind CSS 4.
 * **Responsabilidades:**
   * Interface do usuário
   * Navegação
@@ -62,10 +65,16 @@ comic-tracker/
   * Comunicação com a API
   * Componentes visuais
   * Experiência do usuário (UX)
+* **Estado atual (convenções em uso):**
+  * Rotas: `/` (acervo/dashboard), `/comics/new`, `/comics/[id]`, `/comics/[id]/edit`, `/sites`, `/sites/new`, `/sites/[id]`, `/sites/[id]/edit`.
+  * Componentes organizados por domínio em `components/`: `dashboard/`, `comic-detail/`, `comic-form/`, `sites/`, `rating/`.
+  * Consultas via `services/*.service.ts`, executadas só no servidor (Server Components e Server Actions); cliente HTTP centralizado em `services/api-client.ts` (erros tipados como `ApiError`).
+  * Escritas (criar/editar/excluir) via **Server Actions** (`app/*/actions.ts`), que validam o formulário, chamam o service e encerram com `revalidatePath`/`redirect`.
+  * Busca, filtros e ordenação do acervo vivem na **URL** (ver decisão `docs/decisions/0003`).
 
 ### `apps/api`
 * **Descrição:** Backend da aplicação.
-* **Tecnologias Principais:** NestJS, TypeScript, Jest.
+* **Tecnologias Principais:** NestJS 12, TypeScript (estrito), Prisma 7 + PostgreSQL, Jest, oxlint.
 * **Responsabilidades:**
   * Regras de negócio
   * Persistência de dados
@@ -73,13 +82,47 @@ comic-tracker/
   * Integrações externas
   * Processamento
   * Tarefas assíncronas e Jobs
+* **Estado atual:**
+  * Módulos diretamente em `src/` (não há pasta `modules`): `comics`, `sites`, `comic-sites`, `reading-progress`, `prisma`, `common`.
+  * Endpoints:
+    * `/comics` — CRUD + filtros (`search`, `status`, `order`, `rating`, `site`, `siteStatus`, `inactive`);
+    * `/sites` — CRUD;
+    * `/comic-sites` — CRUD dos vínculos obra↔site (+ `?siteId=`);
+    * `/reading-progress` — CRUD + `PUT /reading-progress/:comicId` (upsert idempotente usado para registrar a última leitura — decisão `docs/decisions/0001`).
+  * Prisma: schema em `prisma/schema.prisma`; client gerado em `src/generated`; migrations em `prisma/migrations`; seed em `prisma/seed.ts` (`pnpm --filter api db:seed`).
+
+### Modelo de dados (resumo)
+
+* `Comic` (obra): título, títulos alternativos, tipo (`MANGA`, `MANHWA`, `MANHUA`, `WEBTOON`, `COMIC`, `OTHER`), status de publicação, capa, nota pessoal 1–5.
+* `Site`: nome (único), `baseUrl`, ativo/inativo.
+* `ComicSite` (vínculo obra↔site): `url` + `currentChapterUrl` — a última URL lida **naquele site** (decisão `docs/decisions/0002`).
+* `ReadingProgress`: apenas a **última leitura** — capítulo (`Decimal`), site da leitura (`comicSiteId`), `lastReadAt` e status (`READING`, `COMPLETED`, `PAUSED`, `DROPPED`, `PLAN_TO_READ`). Sem histórico (decisão `docs/decisions/0001`).
 
 ### `packages`
 * Contém código que realmente precisa ser compartilhado entre diferentes aplicações.
 * **Regra:** Não criar packages sem necessidade real de compartilhamento.
+* **Estado atual:** vazio (nada precisa ser compartilhado até o momento).
 
 ### `docs`
 * Contém documentação de arquitetura, funcionalidades e decisões importantes do projeto.
+* Decisões registradas em `docs/decisions/` (ADRs 0001–0003) — consultar antes de alterar o comportamento do domínio.
+
+### Variáveis de ambiente
+
+* API (`apps/api/.env.example`): `DATABASE_URL`, `PORT`, `CORS_ORIGINS`.
+* Web (`apps/web/.env.example`): `API_URL` (URL base da API usada pelo servidor Next.js).
+
+### Comandos principais
+
+| Comando | Descrição |
+| --- | --- |
+| `pnpm dev` | Sobe o PostgreSQL (serviço Windows), a API e o Web |
+| `pnpm dev:api` / `pnpm dev:web` | Sobe apenas a API (porta 3000) ou o Web (porta 3001) |
+| `pnpm db:generate` / `pnpm db:migrate` | Gera o Prisma Client / aplica migrations do banco |
+| `pnpm --filter api db:seed` | Seed com sites de exemplo |
+| `pnpm --filter api test` | Testes unitários (Jest) |
+| `pnpm --filter api lint` | Lint da API (oxlint) |
+| `pnpm --filter web lint` / `pnpm --filter web build` | Lint (ESLint) / build do Web |
 
 ---
 
